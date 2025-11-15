@@ -1,6 +1,6 @@
 {
-	"name": "quartz",
-	"displayName": "Quartz",
+	"name": "quartz-language",
+	"displayName": "Quartz language",
 	"description": "Syntax highlighting for the Quartz programming language.",
 	"version": "0.1.0",
 	"publisher": "eccs0103",
