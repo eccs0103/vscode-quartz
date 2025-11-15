@@ -1,0 +1,33 @@
+{
+	"name": "quartz",
+	"displayName": "Quartz",
+	"description": "Syntax highlighting for the Quartz programming language.",
+	"version": "0.1.0",
+	"publisher": "eccs0103",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/eccs0103/vscode-quartz.git"
+	},
+	"icon": "images/icon.png",
+	"engines": {
+		"vscode": "^1.80.0"
+	},
+	"categories": [ "Programming Languages" ],
+	"contributes": {
+		"languages": [
+			{
+				"id": "qrz",
+				"aliases": [ "Quartz", "Quartz language" ],
+				"extensions": [ ".qrz" ],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "qrz",
+				"scopeName": "source.qrz",
+				"path": "./syntaxes/qrz.tmLanguage.json"
+			}
+		]
+	}
+}
