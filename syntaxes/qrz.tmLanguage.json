@@ -1,7 +1,6 @@
 {
 	"name": "Quartz",
 	"patterns": [
-		{ "include": "#comments" },
 		{ "include": "#strings" },
 		{ "include": "#imports" },
 		{ "include": "#keywords" },
@@ -14,11 +13,6 @@
 		{ "include": "#punctuation" }
 	],
 	"repository": {
-		"comments": {
-			"patterns": [
-				{ "name": "comment.line.double-slash.qrz", "match": "//.*" }
-			]
-		},
 		"strings": {
 			"patterns": [
 				{ "name": "string.quoted.double.qrz", "match": "\"[^\"]*\"" }
@@ -75,6 +69,13 @@
 					"captures": {
 						"1": { "name": "punctuation.accessor.qrz" },
 						"2": { "name": "entity.name.function.method.qrz" }
+					}
+				},
+				{
+					"match": "(\\.)([a-z_][a-z0-9_]*)",
+					"captures": {
+						"1": { "name": "punctuation.accessor.qrz" },
+						"2": { "name": "variable.other.readwrite.property.qrz" }
 					}
 				}
 			]
