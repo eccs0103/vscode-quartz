@@ -8,8 +8,9 @@
 		{ "include": "#types" },
 		{ "include": "#members" },
 		{ "include": "#functions" },
-		{ "include": "#variables_const" },
+		{ "include": "#variables" },
 		{ "include": "#numbers" },
+		{ "include": "#operators" },
 		{ "include": "#punctuation" }
 	],
 	"repository": {
@@ -21,26 +22,36 @@
 		"imports": {
 			"patterns": [
 				{
-					"name": "meta.import.qrz",
-					"begin": "(use)\\s*(\\{)",
+					"name": "meta.import.functions.qrz",
+					"comment": "Rule for: from Class use { function }",
+					"begin": "(from)\\s+([A-Z][a-zA-Z0-9_]*)\\s+(use)\\s+(\\{)",
 					"beginCaptures": {
 						"1": { "name": "keyword.control.import.qrz" },
-						"2": { "name": "punctuation.brace.curly.qrz" }
+						"2": { "name": "entity.name.type.qrz" },
+						"3": { "name": "keyword.control.import.qrz" },
+						"4": { "name": "punctuation.brace.curly.qrz" }
 					},
-					"end": "(\\})\\s*(from)",
-					"endCaptures": {
-						"1": { "name": "punctuation.brace.curly.qrz" },
-						"2": { "name": "keyword.control.import.qrz" }
-					},
+					"end": "\\}",
+					"endCaptures": { "0": { "name": "punctuation.brace.curly.qrz" } },
 					"patterns": [
-						{
-							"name": "entity.name.type.qrz",
-							"match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
-						},
-						{
-							"name": "entity.name.function.qrz",
-							"match": "\\b[a-z_][a-z0-9_]*\\b"
-						},
+						{ "name": "entity.name.function.qrz", "match": "\\b[a-z_][a-z0-9_]*\\b" },
+						{ "include": "#punctuation" }
+					]
+				},
+				{
+					"name": "meta.import.types.qrz",
+					"comment": "Rule for: from \"string\" use { Type }",
+					"begin": "(from)\\s+(\"[^\"]*\")\\s+(use)\\s+(\\{)",
+					"beginCaptures": {
+						"1": { "name": "keyword.control.import.qrz" },
+						"2": { "name": "string.quoted.double.qrz" },
+						"3": { "name": "keyword.control.import.qrz" },
+						"4": { "name": "punctuation.brace.curly.qrz" }
+					},
+					"end": "\\}",
+					"endCaptures": { "0": { "name": "punctuation.brace.curly.qrz" } },
+					"patterns": [
+						{ "name": "entity.name.type.qrz", "match": "\\b[A-Z][a-zA-Z0-9_]*\\b" },
 						{ "include": "#punctuation" }
 					]
 				}
@@ -54,11 +65,12 @@
 		"modifiers": {
 			"patterns": [
 				{ "name": "variable.language.this.qrz", "match": "\\b(this)\\b" },
-				{ "name": "storage.modifier.qrz", "match": "\\b(mutable)\\b" }
+				{ "name": "constant.language.qrz", "match": "\\b(true|false)\\b" }
 			]
 		},
 		"types": {
 			"patterns": [
+				{ "name": "entity.name.type.qrz", "match": "\\b(Null|Integer|Number|Array|T|Developer|Console|Iterator)\\b" },
 				{ "name": "entity.name.type.qrz", "match": "\\b[A-Z][a-zA-Z0-9_]*\\b" }
 			]
 		},
@@ -82,18 +94,12 @@
 		},
 		"functions": {
 			"patterns": [
-				{
-					"name": "entity.name.function.qrz",
-					"match": "\\b[a-z_][a-z0-9_]*(?=\\s*\\()"
-				}
+				{ "name": "entity.name.function.qrz", "match": "\\b[a-z_][a-z0-9_]*(?=\\s*\\()" }
 			]
 		},
-		"variables_const": {
+		"variables": {
 			"patterns": [
-				{
-					"name": "variable.other.readwrite.qrz",
-					"match": "\\b[a-z_][a-z0-9_]*\\b"
-				}
+				{ "name": "variable.other.readwrite.qrz", "match": "\\b[a-z_][a-z0-9_]*\\b" }
 			]
 		},
 		"numbers": {
@@ -101,9 +107,14 @@
 				{ "name": "constant.numeric.qrz", "match": "\\b-?\\d+(\\.\\d+)?\\b" }
 			]
 		},
+		"operators": {
+			"patterns": [
+				{ "name": "keyword.operator.comparison.qrz", "match": "[=!]=|[<>]={0,2}" },
+				{ "name": "keyword.operator.assignment.qrz", "match": ":" }
+			]
+		},
 		"punctuation": {
 			"patterns": [
-				{ "name": "keyword.operator.assignment.qrz", "match": ":" },
 				{ "name": "punctuation.terminator.statement.qrz", "match": ";" },
 				{ "name": "punctuation.separator.comma.qrz", "match": "," }
 			]
