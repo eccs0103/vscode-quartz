@@ -59,7 +59,11 @@
 		},
 		"keywords": {
 			"patterns": [
-				{ "name": "keyword.control.qrz", "match": "\\b(for|in|use|from|if|else|return)\\b" }
+				{ "name": "keyword.control.qrz", "match": "\\b(if|else)\\b" },
+				{ "name": "keyword.control.qrz", "match": "\\b(while|repeat|for|in)\\b" },
+				{ "name": "keyword.control.qrz", "match": "\\b(break|continue)\\b" },
+				{ "name": "keyword.control.qrz", "match": "\\b(return)\\b" },
+				{ "name": "keyword.control.qrz", "match": "\\b(use|from)\\b" }
 			]
 		},
 		"modifiers": {
@@ -70,7 +74,6 @@
 		},
 		"types": {
 			"patterns": [
-				{ "name": "entity.name.type.qrz", "match": "\\b(Null|Integer|Number|Array|T|Developer|Console|Iterator)\\b" },
 				{ "name": "entity.name.type.qrz", "match": "\\b[A-Z][a-zA-Z0-9_]*\\b" }
 			]
 		},
