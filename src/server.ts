@@ -12,10 +12,7 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-// Create a connection for the server
 const connection = createConnection(ProposedFeatures.all);
-
-// Create a document manager
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let hasConfigurationCapability = false;
@@ -52,11 +49,9 @@ connection.onInitialized(() => {
 	}
 });
 
-// Regular expressions for naming conventions
 const PASCAL_CASE_REGEX = /^[A-Z][a-zA-Z0-9]*$/;
 const SNAKE_CASE_REGEX = /^[a-z_][a-z0-9_]*$/;
 
-// Keywords that should be ignored
 const KEYWORDS = new Set([
 	'if', 'else', 'while', 'repeat', 'for', 'in', 'break', 'continue',
 	'return', 'use', 'from', 'this', 'true', 'false'
@@ -78,8 +73,6 @@ function validateDocument(textDocument: TextDocument): void {
 	const text = textDocument.getText();
 	const diagnostics: Diagnostic[] = [];
 
-	// Regular expression to find all identifiers
-	// Match types (start with uppercase) and variables (start with lowercase/underscore)
 	const identifierRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
 
 	let match: RegExpExecArray | null;
@@ -88,16 +81,13 @@ function validateDocument(textDocument: TextDocument): void {
 		const identifier = match[1];
 		const position = match.index;
 
-		// Skip keywords
 		if (isKeyword(identifier)) {
 			continue;
 		}
 
-		// Check if identifier starts with uppercase (type)
 		const startsWithUppercase = /^[A-Z]/.test(identifier);
 
 		if (startsWithUppercase) {
-			// This should be a type - must be PascalCase
 			if (!isPascalCase(identifier)) {
 				const diagnostic: Diagnostic = {
 					severity: DiagnosticSeverity.Warning,
@@ -111,7 +101,6 @@ function validateDocument(textDocument: TextDocument): void {
 				diagnostics.push(diagnostic);
 			}
 		} else {
-			// This should be a variable/function - must be snake_case
 			if (!isSnakeCase(identifier)) {
 				const diagnostic: Diagnostic = {
 					severity: DiagnosticSeverity.Warning,
@@ -127,7 +116,6 @@ function validateDocument(textDocument: TextDocument): void {
 		}
 	}
 
-	// Send the computed diagnostics to VS Code
 	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
@@ -146,16 +134,13 @@ function toSnakeCase(str: string): string {
 		.replace(/[_\s]+/g, '_');
 }
 
-// Validate document on open
 documents.onDidOpen((e) => {
 	validateDocument(e.document);
 });
 
-// Validate document on change
 documents.onDidChangeContent((change) => {
 	validateDocument(change.document);
 });
 
-// Listen on the connection
 documents.listen(connection);
 connection.listen();

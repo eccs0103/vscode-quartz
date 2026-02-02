@@ -10,15 +10,12 @@ import {
 let client: LanguageClient;
 
 export function activate(context: vscode.ExtensionContext) {
-	// Server module path
 	const serverModule = context.asAbsolutePath(
 		path.join('out', 'server.js')
 	);
 
-	// Debug options for the server
 	const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
 
-	// Server options
 	const serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc },
 		debug: {
@@ -28,7 +25,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	// Client options
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file', language: 'qrz' }],
 		synchronize: {
@@ -36,7 +32,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	// Create the language client
 	client = new LanguageClient(
 		'quartzLanguageServer',
 		'Quartz Language Server',
@@ -44,7 +39,6 @@ export function activate(context: vscode.ExtensionContext) {
 		clientOptions
 	);
 
-	// Start the client
 	client.start();
 }
 
