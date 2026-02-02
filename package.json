@@ -13,6 +13,10 @@
 		"vscode": "^1.80.0"
 	},
 	"categories": [ "Programming Languages" ],
+	"activationEvents": [
+		"onLanguage:qrz"
+	],
+	"main": "./out/extension.js",
 	"contributes": {
 		"languages": [
 			{
@@ -29,5 +33,20 @@
 				"path": "./syntaxes/qrz.tmLanguage.json"
 			}
 		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"@types/vscode": "^1.80.0",
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.0",
+		"vscode-languageserver": "^9.0.0",
+		"vscode-languageserver-textdocument": "^1.0.0"
 	}
 }
