@@ -1,8 +1,8 @@
 {
 	"name": "quartz-language",
 	"displayName": "Quartz language",
-	"description": "Syntax highlighting for the Quartz programming language.",
-	"version": "0.1.4",
+	"description": "Complete language support for the Quartz programming language including syntax highlighting, formatting, IntelliSense, and more.",
+	"version": "0.2.0",
 	"publisher": "eccs0103",
 	"repository": {
 		"type": "git",
@@ -12,7 +12,20 @@
 	"engines": {
 		"vscode": "^1.80.0"
 	},
-	"categories": [ "Programming Languages" ],
+	"categories": [ 
+		"Programming Languages",
+		"Formatters",
+		"Snippets",
+		"Linters"
+	],
+	"keywords": [
+		"quartz",
+		"qrz",
+		"syntax",
+		"highlighting",
+		"formatter",
+		"language-server"
+	],
 	"activationEvents": [
 		"onLanguage:qrz"
 	],
@@ -31,6 +44,12 @@
 				"language": "qrz",
 				"scopeName": "source.qrz",
 				"path": "./syntaxes/qrz.tmLanguage.json"
+			}
+		],
+		"snippets": [
+			{
+				"language": "qrz",
+				"path": "./snippets/qrz.json"
 			}
 		]
 	},

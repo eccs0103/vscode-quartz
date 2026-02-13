@@ -1,4 +1,8 @@
 {
+	"comments": {
+		"lineComment": { "comment": "//" },
+		"blockComment": [ "/*", "*/" ]
+	},
 	"brackets": [
 		[ "{", "}" ],
 		[ "(", ")" ],
@@ -15,5 +19,15 @@
 		{ "open": "(", "close": ")" },
 		{ "open": "[", "close": "]" },
 		{ "open": "\"", "close": "\"" }
-	]
+	],
+	"indentationRules": {
+		"increaseIndentPattern": "^((?!\\/\\/).)*(\\{[^}\"']*|\\([^)\"']*|\\[[^\\]\"']*)$",
+		"decreaseIndentPattern": "^((?!.*?\\/\\*).*\\*/)?\\s*[\\}\\]\\)].*$"
+	},
+	"folding": {
+		"markers": {
+			"start": "^\\s*//\\s*#region\\b",
+			"end": "^\\s*//\\s*#endregion\\b"
+		}
+	}
 }

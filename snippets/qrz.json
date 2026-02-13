@@ -1,0 +1,110 @@
+{
+	"Variable Declaration": {
+		"prefix": "var",
+		"body": [
+			"${1:name} ${2:Type}(${3:value});"
+		],
+		"description": "Declare a variable with initialization"
+	},
+	"Optional Variable": {
+		"prefix": "opt",
+		"body": [
+			"${1:name} ${2:Type}?;"
+		],
+		"description": "Declare an optional (nullable) variable"
+	},
+	"Assignment": {
+		"prefix": "assign",
+		"body": [
+			"${1:name} : ${2:value};"
+		],
+		"description": "Assign value to variable"
+	},
+	"If Statement": {
+		"prefix": "if",
+		"body": [
+			"if (${1:condition}) {",
+			"\t$0",
+			"}"
+		],
+		"description": "Create an if statement"
+	},
+	"If-Else Statement": {
+		"prefix": "ifelse",
+		"body": [
+			"if (${1:condition}) {",
+			"\t${2:// true branch}",
+			"} else {",
+			"\t${3:// false branch}",
+			"}"
+		],
+		"description": "Create an if-else statement"
+	},
+	"While Loop": {
+		"prefix": "while",
+		"body": [
+			"while (${1:condition}) {",
+			"\t$0",
+			"}"
+		],
+		"description": "Create a while loop"
+	},
+	"Function Call": {
+		"prefix": "call",
+		"body": [
+			"${1:function}(${2:arguments});"
+		],
+		"description": "Call a function"
+	},
+	"Write Output": {
+		"prefix": "write",
+		"body": [
+			"write(${1:value});"
+		],
+		"description": "Write output to console"
+	},
+	"Number Variable": {
+		"prefix": "num",
+		"body": [
+			"${1:name} Number(${2:0});"
+		],
+		"description": "Declare a Number variable"
+	},
+	"String Variable": {
+		"prefix": "str",
+		"body": [
+			"${1:name} String(\"${2:text}\");"
+		],
+		"description": "Declare a String variable"
+	},
+	"Boolean Variable": {
+		"prefix": "bool",
+		"body": [
+			"${1:name} Boolean(${2:true});"
+		],
+		"description": "Declare a Boolean variable"
+	},
+	"Any Variable": {
+		"prefix": "any",
+		"body": [
+			"${1:name} Any(${2:value});"
+		],
+		"description": "Declare an Any (polymorphic) variable"
+	},
+	"Block Comment": {
+		"prefix": "/*",
+		"body": [
+			"/*",
+			" * ${1:comment}",
+			" */"
+		],
+		"description": "Block comment"
+	},
+	"Line Comment": {
+		"prefix": "//",
+		"body": [
+			"// ${1:comment}"
+		],
+		"description": "Line comment"
+	}
+}

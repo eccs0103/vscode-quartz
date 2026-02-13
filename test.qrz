@@ -1,0 +1,63 @@
+// Test file for Quartz Language Extension
+// This file demonstrates all features of the extension
+
+// Variables
+counter Number(0);
+message String("Hello, Quartz!");
+is_active Boolean(true);
+polymorphic Any(42);
+
+// Optional variables
+optional_value Number?;
+optional_value : 100;
+
+// null support
+null_value Any(null);
+
+// Arithmetic operations
+sum Number(10 + 20);
+product Number(5 * 6);
+difference Number(100 - 25);
+quotient Number(50 / 2);
+
+// String operations
+greeting String("Hello");
+name String("World");
+full_greeting String(greeting + ", " + name + "!");
+
+// Boolean logic
+condition Boolean(true & false);
+result Boolean((5 < 10) | (10 > 20));
+negation Boolean(! is_active);
+
+// Control flow - if statement
+if (counter < 10) {
+	counter : counter + 1;
+	write("Counter incremented");
+}
+
+// Control flow - if-else
+if (is_active) {
+	write("Active");
+} else {
+	write("Inactive");
+}
+
+// Control flow - while loop
+loop_var Number(0);
+while (loop_var < 5) {
+	write(loop_var);
+	loop_var : loop_var + 1;
+}
+
+/* Block comment
+Multiple lines
+Testing formatting */
+
+// Test nested blocks
+if (true) {
+	inner Number(1);
+	if (inner > 0) {
+		write("Nested condition");
+	}
+}
