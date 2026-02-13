@@ -69,6 +69,18 @@ None at this time. Please report issues on [GitHub](https://github.com/eccs0103/
 
 ## Release Notes
 
+### 0.3.0
+
+**Major Refactoring**
+- Restructured project following clean architecture patterns
+- Improved code formatting:
+  - Fixed unary operators (+, -, !) spacing
+  - Fixed generic types (<>) spacing
+  - Better detection of binary vs unary operators
+- Enhanced code organization with models, services, and providers layers
+- Added comprehensive architecture documentation
+- Professional TypeScript patterns throughout
+
 ### 0.2.0
 
 - Added code formatting support

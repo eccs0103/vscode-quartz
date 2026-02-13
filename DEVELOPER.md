@@ -5,21 +5,62 @@
 ```
 VSCode Quartz/
 ├── src/
-│   ├── extension.ts      # Extension entry point, activates language client
-│   └── server.ts         # Language server implementation
+│   ├── extension.ts          # Extension entry point, activates language client
+│   ├── server.ts             # Language server main file
+│   ├── models/               # Data models and constants
+│   │   ├── language-keywords.ts    # Keywords, types, functions
+│   │   ├── naming-conventions.ts   # Naming rules (PascalCase, snake_case)
+│   │   ├── hover-data.ts          # Hover documentation content
+│   │   └── completion-items.ts     # Auto-completion items
+│   ├── services/             # Business logic services
+│   │   ├── validation-service.ts   # Code validation
+│   │   ├── formatting-service.ts   # Code formatting
+│   │   ├── completion-service.ts   # Completion logic
+│   │   └── hover-service.ts       # Hover information logic
+│   └── providers/            # LSP providers
+│       ├── diagnostics-provider.ts  # Diagnostics
+│       ├── formatting-provider.ts   # Formatting
+│       ├── completion-provider.ts   # Completions
+│       └── hover-provider.ts       # Hover
 ├── syntaxes/
-│   └── qrz.tmLanguage.json  # TextMate grammar for syntax highlighting
+│   └── qrz.tmLanguage.json   # TextMate grammar for syntax highlighting
 ├── snippets/
-│   └── qrz.json         # Code snippets
+│   └── qrz.json              # Code snippets
 ├── images/
-│   └── icon.png         # Extension icon
+│   └── icon.png              # Extension icon
 ├── language-configuration.json  # Language configuration (brackets, comments, etc.)
-├── package.json         # Extension manifest
-├── tsconfig.json        # TypeScript configuration
-└── README.md           # User documentation
+├── package.json              # Extension manifest
+├── tsconfig.json             # TypeScript configuration
+└── README.md                 # User documentation
 ```
 
-## Features Implemented
+## Architecture
+
+The project follows a **clean architecture** pattern inspired by professional TypeScript projects:
+
+### Models (`src/models/`)
+Pure data structures and constants. No business logic.
+- `language-keywords.ts`: Keywords, built-in types, functions
+- `naming-conventions.ts`: Naming convention rules and utilities
+- `hover-data.ts`: Hover documentation content
+- `completion-items.ts`: Completion item definitions
+
+### Services (`src/services/`)
+Business logic and core functionality. Independent of LSP.
+- `validation-service.ts`: Validates code against naming conventions
+- `formatting-service.ts`: Formats Quartz code
+- `completion-service.ts`: Generates completion items
+- `hover-service.ts`: Provides hover information
+
+### Providers (`src/providers/`)
+LSP-specific providers. Bridge between services and language server.
+- `diagnostics-provider.ts`: Wraps validation service
+- `formatting-provider.ts`: Wraps formatting service  
+- `completion-provider.ts`: Wraps completion service
+- `hover-provider.ts`: Wraps hover service
+
+### Server (`src/server.ts`)
+Main language server file. Wires everything together.
 
 ### 1. Syntax Highlighting (syntaxes/qrz.tmLanguage.json)
 - Keywords: if, else, while, break, continue
