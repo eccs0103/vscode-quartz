@@ -63,46 +63,9 @@ The extension automatically warns about naming convention violations:
 
 This extension currently does not add any VS Code settings.
 
-## Known Issues
-
-None at this time. Please report issues on [GitHub](https://github.com/eccs0103/vscode-quartz/issues).
-
-## Release Notes
-
-### 0.3.0
-
-**Major Refactoring**
-- Restructured project following clean architecture patterns
-- Improved code formatting:
-  - Fixed unary operators (+, -, !) spacing
-  - Fixed generic types (<>) spacing
-  - Better detection of binary vs unary operators
-- Enhanced code organization with models, services, and providers layers
-- Added comprehensive architecture documentation
-- Professional TypeScript patterns throughout
-
-### 0.2.0
-
-- Added code formatting support
-- Added IntelliSense completion
-- Added hover documentation
-- Added code snippets
-- Added comment support (line and block)
-- Enhanced syntax highlighting (null, comments, improved operators)
-- Added indentation rules
-- Added code folding support
-
-### 0.1.4
-
-- Initial release with basic syntax highlighting
-- Bracket auto-closing
-- Naming convention linting
-
 ---
 
 ## For More Information
 
 - [Quartz Language Repository](https://github.com/eccs0103/quartz)
 - [VS Code Extension Repository](https://github.com/eccs0103/vscode-quartz)
-
-**Enjoy coding in Quartz!**

@@ -2,7 +2,7 @@
 
 All notable changes to the "quartz-language" extension will be documented in this file.
 
-## 0.3.0 (14.02.2026)
+## 0.3.1 (14.02.2026)
 
 ### Changed - Major Refactoring
 - **Project Restructure**: Reorganized codebase following clean architecture patterns
