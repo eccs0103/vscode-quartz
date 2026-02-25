@@ -19,6 +19,14 @@ export const HOVER_CONTENT: ReadonlyMap<string, HoverInfo> = new Map([
 		keyword: 'while',
 		documentation: '`while` - Loop statement\n\nSyntax: `while (condition) { ... }`'
 	}],
+	['for', {
+		keyword: 'for',
+		documentation: '`for` - Loop statement\n\nSyntax: `for (item Type in collection) { ... }`'
+	}],
+	['in', {
+		keyword: 'in',
+		documentation: '`in` - Keyword used in `for` loops'
+	}],
 	['break', {
 		keyword: 'break',
 		documentation: '`break` - Exit from loop'
@@ -43,6 +51,14 @@ export const HOVER_CONTENT: ReadonlyMap<string, HoverInfo> = new Map([
 		keyword: 'Any',
 		documentation: '`Any` - Polymorphic type\n\nCan hold any value type.'
 	}],
+	['Character', {
+		keyword: 'Character',
+		documentation: '`Character` - Character type\n\nExample: `char Character(\'a\');`'
+	}],
+	['Sequence', {
+		keyword: 'Sequence',
+		documentation: '`Sequence` - Sequence type\n\nExample: `seq Sequence<Number>(range(5));`'
+	}],
 	['true', {
 		keyword: 'true',
 		documentation: '`true` - Boolean true value'
@@ -58,6 +74,14 @@ export const HOVER_CONTENT: ReadonlyMap<string, HoverInfo> = new Map([
 	['write', {
 		keyword: 'write',
 		documentation: '`write(value)` - Output function\n\nWrites value to console.'
+	}],
+	['read', {
+		keyword: 'read',
+		documentation: '`read(message)` - Input function\n\nReads user input from console.'
+	}],
+	['range', {
+		keyword: 'range',
+		documentation: '`range(max)` or `range(min, max)` - Sequence generator\n\nCreates a sequence of numbers.'
 	}]
 ]);
 //#endregion

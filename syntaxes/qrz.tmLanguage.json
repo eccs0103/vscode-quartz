@@ -30,7 +30,8 @@
 		},
 		"strings": {
 			"patterns": [
-				{ "name": "string.quoted.double.qrz", "match": "\"[^\"]*\"" }
+				{ "name": "string.quoted.double.qrz", "match": "\"[^\"]*\"" },
+				{ "name": "string.quoted.single.qrz", "match": "'[^']*'" }
 			]
 		},
 		"imports": {

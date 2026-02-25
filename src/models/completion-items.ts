@@ -7,6 +7,8 @@ export const KEYWORD_COMPLETIONS: ReadonlyArray<CompletionItem> = [
 	{ label: 'if', kind: CompletionItemKind.Keyword, detail: 'If statement' },
 	{ label: 'else', kind: CompletionItemKind.Keyword, detail: 'Else branch' },
 	{ label: 'while', kind: CompletionItemKind.Keyword, detail: 'While loop' },
+	{ label: 'for', kind: CompletionItemKind.Keyword, detail: 'For loop' },
+	{ label: 'in', kind: CompletionItemKind.Keyword, detail: 'In keyword' },
 	{ label: 'break', kind: CompletionItemKind.Keyword, detail: 'Break statement' },
 	{ label: 'continue', kind: CompletionItemKind.Keyword, detail: 'Continue statement' }
 ];
@@ -15,7 +17,9 @@ export const TYPE_COMPLETIONS: ReadonlyArray<CompletionItem> = [
 	{ label: 'Number', kind: CompletionItemKind.Class, detail: 'Number type' },
 	{ label: 'String', kind: CompletionItemKind.Class, detail: 'String type' },
 	{ label: 'Boolean', kind: CompletionItemKind.Class, detail: 'Boolean type' },
-	{ label: 'Any', kind: CompletionItemKind.Class, detail: 'Any type (polymorphic)' }
+	{ label: 'Any', kind: CompletionItemKind.Class, detail: 'Any type' },
+	{ label: 'Character', kind: CompletionItemKind.Class, detail: 'Character type' },
+	{ label: 'Sequence', kind: CompletionItemKind.Class, detail: 'Sequence type' },
 ];
 
 export const CONSTANT_COMPLETIONS: ReadonlyArray<CompletionItem> = [
@@ -25,7 +29,9 @@ export const CONSTANT_COMPLETIONS: ReadonlyArray<CompletionItem> = [
 ];
 
 export const FUNCTION_COMPLETIONS: ReadonlyArray<CompletionItem> = [
-	{ label: 'write', kind: CompletionItemKind.Function, detail: 'Write output to console', insertText: 'write(${1:value});' }
+	{ label: 'write', kind: CompletionItemKind.Function, detail: 'Write output to console', insertText: 'write(${1:value});' },
+	{ label: 'read', kind: CompletionItemKind.Function, detail: 'Read user input', insertText: 'read(${1:message});' },
+	{ label: 'range', kind: CompletionItemKind.Function, detail: 'Create a sequence of numbers', insertText: 'range(${1:max});' }
 ];
 
 export const ALL_COMPLETIONS: ReadonlyArray<CompletionItem> = [

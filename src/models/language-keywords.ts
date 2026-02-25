@@ -7,10 +7,10 @@ export const KEYWORDS = new Set([
 ]);
 
 export const BUILT_IN_TYPES = new Set([
-	'Number', 'String', 'Boolean', 'Any'
+	'Number', 'String', 'Boolean', 'Any', 'Character', 'Sequence'
 ]);
 
 export const BUILT_IN_FUNCTIONS = new Set([
-	'write', 'read'
+	'write', 'read', 'range'
 ]);
 //#endregion

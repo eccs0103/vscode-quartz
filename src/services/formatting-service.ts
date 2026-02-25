@@ -69,6 +69,7 @@ export class FormattingService {
 		
 		// Split by strings to avoid formatting inside them
 		let inString = false;
+		let stringChar = '';
 		let result = '';
 		
 		for (let i = 0; i < content.length; i++) {
@@ -77,8 +78,17 @@ export class FormattingService {
 			const next = i < content.length - 1 ? content[i + 1] : '';
 			
 			// Handle string boundaries
-			if (char === '"' && (i === 0 || content[i - 1] !== '\\')) {
-				inString = !inString;
+			if ((char === '"' || char === "'") && (i === 0 || content[i - 1] !== '\\')) {
+				if (!inString) {
+					inString = true;
+					stringChar = char;
+				} else if (stringChar === char) {
+					inString = false;
+					stringChar = '';
+				} else {
+					result += char;
+					continue;
+				}
 				result += char;
 				continue;
 			}
@@ -104,6 +114,16 @@ export class FormattingService {
 					result += ' ';
 				}
 				continue;
+			}
+			
+			// Handle comments at the end of the line
+			if (char === '/' && next === '/') {
+				// Add space before comment if needed
+				if (result.length > 0 && result[result.length - 1] !== ' ') {
+					result += ' ';
+				}
+				result += content.substring(i);
+				break;
 			}
 			
 			// Handle operators - but distinguish unary from binary
@@ -151,8 +171,15 @@ export class FormattingService {
 			result += char;
 		}
 		
-		// Clean up multiple spaces
-		result = result.replace(/\s+/g, ' ').replace(/\s+([;,)])/g, '$1');
+		// Clean up multiple spaces, but preserve spaces in comments
+		const commentIndex = result.indexOf('//');
+		if (commentIndex !== -1) {
+			const codePart = result.substring(0, commentIndex);
+			const commentPart = result.substring(commentIndex);
+			result = codePart.replace(/\s+/g, ' ').replace(/\s+([;,)])/g, '$1') + commentPart;
+		} else {
+			result = result.replace(/\s+/g, ' ').replace(/\s+([;,)])/g, '$1');
+		}
 		
 		return indent + result;
 	}
