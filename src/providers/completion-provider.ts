@@ -1,6 +1,7 @@
 "use strict";
 
 import { CompletionItem } from 'vscode-languageserver/node';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { CompletionService } from '../services/completion-service.js';
 
 //#region Completion provider
@@ -11,8 +12,8 @@ export class CompletionProvider {
 		this.#completionService = completionService;
 	}
 
-	provideCompletion(): CompletionItem[] {
-		return this.#completionService.getCompletions();
+	provideCompletion(document: TextDocument): CompletionItem[] {
+		return this.#completionService.getCompletions(document);
 	}
 }
 //#endregion

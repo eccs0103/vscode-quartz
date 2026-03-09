@@ -33,6 +33,7 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
+let workspaceFolders: any[] | null = null;
 //#endregion
 
 //#region Services
@@ -53,6 +54,7 @@ const foldingProvider = new FoldingProvider();
 //#region Initialization
 connection.onInitialize((params: InitializeParams) => {
 	const capabilities = params.capabilities;
+	workspaceFolders = params.workspaceFolders || null;
 
 	hasConfigurationCapability = !!(
 		capabilities.workspace && !!capabilities.workspace.configuration
@@ -89,6 +91,9 @@ connection.onInitialized(() => {
 	if (hasConfigurationCapability) {
 		connection.client.register(DidChangeConfigurationNotification.type, undefined);
 	}
+	if (workspaceFolders) {
+		completionService.initialize(workspaceFolders);
+	}
 });
 //#endregion
 
@@ -109,7 +114,11 @@ documents.onDidChangeContent((change) => {
 
 //#region Completion provider
 connection.onCompletion((params: CompletionParams) => {
-	return completionProvider.provideCompletion();
+	const document = documents.get(params.textDocument.uri);
+	if (!document) {
+		return [];
+	}
+	return completionProvider.provideCompletion(document);
 });
 //#endregion
 

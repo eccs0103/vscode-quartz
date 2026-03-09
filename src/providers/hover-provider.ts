@@ -15,15 +15,15 @@ export class HoverProvider {
 	provideHover(textDocument: TextDocument, position: Position): Hover | null {
 		const text = textDocument.getText();
 		const offset = textDocument.offsetAt(position);
-		
+
 		// Find word at position
 		const wordPattern = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
 		let match: RegExpExecArray | null;
-		
+
 		while ((match = wordPattern.exec(text))) {
 			if (match.index <= offset && offset <= match.index + match[0].length) {
 				const word = match[0];
-				
+
 				// Try to provide generic hover if not found in HOVER_CONTENT
 				const hoverContent = this.#hoverService.getHoverContent(word);
 				if (hoverContent) {
@@ -37,7 +37,7 @@ export class HoverProvider {
 
 				// If no static hover found, infer from document text simple declarations
 				const documentText = textDocument.getText();
-				
+
 				// Very basic regex to see if it's a function declaration
 				const funcRegex = new RegExp(`function\\s+${word}\\s*\\([^)]*\\)`, 'g');
 				const funcMatch = funcRegex.exec(documentText);
@@ -45,7 +45,7 @@ export class HoverProvider {
 					return {
 						contents: {
 							kind: MarkupKind.Markdown,
-							value: ["```quartz", funcMatch[0], "```", "---", "User defined function."].join('\\n')
+							value: ["```quartz", funcMatch[0], "```", "---", "User defined function."].join('\n')
 						}
 					};
 				}
@@ -57,30 +57,30 @@ export class HoverProvider {
 					return {
 						contents: {
 							kind: MarkupKind.Markdown,
-							value: ["```quartz", `${word} ${varMatch[1]}`, "```", "---", `Variable of type \`${varMatch[1]}\`.`].join('\\n')
+							value: ["```quartz", `${word} ${varMatch[1]}`, "```", "---", `Variable of type \`${varMatch[1]}\`.`].join('\n')
 						}
 					};
 				}
-				
+
 				// Standard variable fallback if capitalized vs lowercase
 				if (/^[A-Z]/.test(word)) {
 					return {
 						contents: {
 							kind: MarkupKind.Markdown,
-							value: ["```quartz", `class ${word}`, "```", "---", "Custom type or class."].join('\\n')
+							value: ["```quartz", `class ${word}`, "```", "---", "Custom type or class."].join('\n')
 						}
 					};
 				} else {
 					return {
 						contents: {
 							kind: MarkupKind.Markdown,
-							value: ["```quartz", `${word}`, "```", "---", "Variable or identifier."].join('\\n')
+							value: ["```quartz", `${word}`, "```", "---", "Variable or identifier."].join('\n')
 						}
 					};
 				}
 			}
 		}
-		
+
 		return null;
 	}
 }
