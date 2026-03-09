@@ -5,6 +5,8 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ALL_COMPLETIONS } from '../models/completion-items.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Lexer } from './semantic/lexer.js';
+import { Parser, Scope } from './semantic/parser.js';
 
 //#region Completion service
 export class CompletionService {
@@ -31,59 +33,40 @@ export class CompletionService {
 		}
 	}
 
-	private parseDynamicCompletions(text: string, context: string): CompletionItem[] {
-		const items: CompletionItem[] = [];
-		const added = new Set<string>();
+private extractSymbolsFromScope(scope: Scope, items: CompletionItem[], added: Set<string>, context: string) {
+                for (const [name, sym] of scope.symbols.entries()) {
+                        if (added.has(name)) continue;
 
-		// Remove comments and strings to avoid false positives
-		const cleanText = text
-			.replace(/\/\*[\s\S]*?\*\//g, '') // block comments
-			.replace(/\/\/.*/g, '')          // line comments
-			.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, '') // strings
-			.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, ''); // single quotes
+                        let kind: CompletionItemKind = CompletionItemKind.Variable;
+                        if (sym.kind === 'function') kind = CompletionItemKind.Function;
+                        else if (sym.kind === 'class') kind = CompletionItemKind.Class;
 
-		// Extract variables (assuming type identifier value form)
-		const varPattern = /\b([a-z_][a-zA-Z0-9_]*)\s+[A-Z][a-zA-Z0-9_]*\b/g;
-		let match;
-		while ((match = varPattern.exec(cleanText)) !== null) {
-			const varName = match[1];
-			// skip known keywords
-			if (["if", "else", "while", "for", "true", "false", "function", "return", "class", "namespace", "to", "as", "is"].includes(varName) || added.has(varName)) continue;
+                        items.push({
+                                label: name,
+                                kind: kind,
+                                detail: sym.documentation ? `[${context}] ${sym.documentation}` : `[${context}] ${sym.kind}`
+                        });
+                        added.add(name);
+                }
 
-			items.push({
-				label: varName,
-				kind: CompletionItemKind.Variable,
-				detail: `Variable from ${context}`
-			});
-			added.add(varName);
-		}
+                for (const child of scope.children) {
+                        this.extractSymbolsFromScope(child, items, added, context);
+                }
+        }
 
-		// Extract functions (function name(args))
-		const funcPattern = /\bfunction\s+([a-zA-Z_][a-zA-Z0-9_]*)/g;
-		while ((match = funcPattern.exec(cleanText)) !== null) {
-			const funcName = match[1];
-			if (added.has(funcName)) continue;
+        private parseDynamicCompletions(text: string, context: string): CompletionItem[] {
+                const items: CompletionItem[] = [];
+                const added = new Set<string>();
 
-			items.push({
-				label: funcName,
-				kind: CompletionItemKind.Function,
-				detail: `Function from ${context}`
-			});
-			added.add(funcName);
-		}
+                try {
+                        const lexer = new Lexer(text);
+                        const tokens = lexer.tokenize();
+                        const parser = new Parser(tokens);
+                        parser.parse();
 
-		// Extract classes or types (capitalized word at start or after class)
-		const typePattern = /\bclass\s+([A-Z][a-zA-Z0-9_]*)/g;
-		while ((match = typePattern.exec(cleanText)) !== null) {
-			const typeName = match[1];
-			if (added.has(typeName)) continue;
-
-			items.push({
-				label: typeName,
-				kind: CompletionItemKind.Class,
-				detail: `Class from ${context}`
-			});
-			added.add(typeName);
+                        this.extractSymbolsFromScope(parser.rootScope, items, added, context);
+                } catch (e) {
+                        // ignore parsing error
 		}
 
 		return items;
