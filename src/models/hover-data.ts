@@ -9,79 +9,79 @@ export interface HoverInfo {
 export const HOVER_CONTENT: ReadonlyMap<string, HoverInfo> = new Map([
 	['if', {
 		keyword: 'if',
-		documentation: '`if` - Conditional statement\n\nSyntax: `if (condition) { ... }`'
+		documentation: '```quartz\nif (condition) { ... }\n```\n---\nConditional statement.'
 	}],
 	['else', {
 		keyword: 'else',
-		documentation: '`else` - Alternative branch\n\nSyntax: `if (condition) { ... } else { ... }`'
+		documentation: '```quartz\nelse { ... }\n```\n---\nAlternative branch for an `if` statement.'
 	}],
 	['while', {
 		keyword: 'while',
-		documentation: '`while` - Loop statement\n\nSyntax: `while (condition) { ... }`'
+		documentation: '```quartz\nwhile (condition) { ... }\n```\n---\nLoop statement that executes while the condition is true.'
 	}],
 	['for', {
 		keyword: 'for',
-		documentation: '`for` - Loop statement\n\nSyntax: `for (item Type in collection) { ... }`'
+		documentation: '```quartz\nfor (item Type in collection) { ... }\n```\n---\nLoop statement that iterates over a collection.'
 	}],
 	['in', {
 		keyword: 'in',
-		documentation: '`in` - Keyword used in `for` loops'
+		documentation: '```quartz\nin\n```\n---\nKeyword used in `for` loops to specify the collection.'
 	}],
 	['break', {
 		keyword: 'break',
-		documentation: '`break` - Exit from loop'
+		documentation: '```quartz\nbreak;\n```\n---\nExits from the current loop.'
 	}],
 	['continue', {
 		keyword: 'continue',
-		documentation: '`continue` - Skip to next iteration'
+		documentation: '```quartz\ncontinue;\n```\n---\nSkips the rest of the current loop iteration and moves to the next one.'
 	}],
 	['Number', {
 		keyword: 'Number',
-		documentation: '`Number` - Numeric type\n\nExample: `value Number(42);`'
+		documentation: '```quartz\nNumber\n```\n---\nNumeric type. Can hold integer and floating-point values.\n\n*Example:*\n```quartz\nvalue Number(42);\n```'
 	}],
 	['String', {
 		keyword: 'String',
-		documentation: '`String` - String type\n\nExample: `text String("hello");`'
+		documentation: '```quartz\nString\n```\n---\nString type. Represents a sequence of characters.\n\n*Example:*\n```quartz\ntext String("hello");\n```'
 	}],
 	['Boolean', {
 		keyword: 'Boolean',
-		documentation: '`Boolean` - Boolean type\n\nExample: `flag Boolean(true);`'
+		documentation: '```quartz\nBoolean\n```\n---\nBoolean type. Can be `true` or `false`.\n\n*Example:*\n```quartz\nflag Boolean(true);\n```'
 	}],
 	['Any', {
 		keyword: 'Any',
-		documentation: '`Any` - Polymorphic type\n\nCan hold any value type.'
+		documentation: '```quartz\nAny\n```\n---\nPolymorphic type that can hold any value.'
 	}],
 	['Character', {
 		keyword: 'Character',
-		documentation: '`Character` - Character type\n\nExample: `char Character(\'a\');`'
+		documentation: '```quartz\nCharacter\n```\n---\nCharacter type. Represents a single character.\n\n*Example:*\n```quartz\nchar Character(\'a\');\n```'
 	}],
 	['Sequence', {
 		keyword: 'Sequence',
-		documentation: '`Sequence` - Sequence type\n\nExample: `seq Sequence<Number>(range(5));`'
+		documentation: '```quartz\nSequence<T>\n```\n---\nSequence type representing an array or list of elements of type `T`.\n\n*Example:*\n```quartz\nseq Sequence<Number>(range(5));\n```'
 	}],
 	['true', {
 		keyword: 'true',
-		documentation: '`true` - Boolean true value'
+		documentation: '```quartz\ntrue\n```\n---\nBoolean true value.'
 	}],
 	['false', {
 		keyword: 'false',
-		documentation: '`false` - Boolean false value'
+		documentation: '```quartz\nfalse\n```\n---\nBoolean false value.'
 	}],
 	['null', {
 		keyword: 'null',
-		documentation: '`null` - Null value'
+		documentation: '```quartz\nnull\n```\n---\nRepresents the intentional absence of any value.'
 	}],
 	['write', {
 		keyword: 'write',
-		documentation: '`write(value)` - Output function\n\nWrites value to console.'
+		documentation: '```quartz\nfunction write(value: Any)\n```\n---\nOutput function.\n\nWrites the given value to the console.'
 	}],
 	['read', {
 		keyword: 'read',
-		documentation: '`read(message)` - Input function\n\nReads user input from console.'
+		documentation: '```quartz\nfunction read(message: String): String\n```\n---\nInput function.\n\nReads user input from the console.'
 	}],
 	['range', {
 		keyword: 'range',
-		documentation: '`range(max)` or `range(min, max)` - Sequence generator\n\nCreates a sequence of numbers.'
+		documentation: '```quartz\nfunction range(max: Number): Sequence<Number>\nfunction range(min: Number, max: Number): Sequence<Number>\n```\n---\nSequence generator.\n\nCreates a sequence of numbers.'
 	}]
 ]);
 //#endregion

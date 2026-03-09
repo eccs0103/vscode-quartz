@@ -10,7 +10,8 @@ import {
 	InitializeResult,
 	DocumentFormattingParams,
 	CompletionParams,
-	HoverParams
+	HoverParams,
+	FoldingRangeParams
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -24,6 +25,7 @@ import { DiagnosticsProvider } from './providers/diagnostics-provider.js';
 import { FormattingProvider } from './providers/formatting-provider.js';
 import { CompletionProvider } from './providers/completion-provider.js';
 import { HoverProvider } from './providers/hover-provider.js';
+import { FoldingProvider } from './providers/folding-provider.js';
 
 //#region Connection
 const connection = createConnection(ProposedFeatures.all);
@@ -45,6 +47,7 @@ const diagnosticsProvider = new DiagnosticsProvider(validationService);
 const formattingProvider = new FormattingProvider(formattingService);
 const completionProvider = new CompletionProvider(completionService);
 const hoverProvider = new HoverProvider(hoverService);
+const foldingProvider = new FoldingProvider();
 //#endregion
 
 //#region Initialization
@@ -66,7 +69,8 @@ connection.onInitialize((params: InitializeParams) => {
 				triggerCharacters: ['.']
 			},
 			documentFormattingProvider: true,
-			hoverProvider: true
+			hoverProvider: true,
+			foldingRangeProvider: true
 		}
 	};
 	
@@ -128,6 +132,17 @@ connection.onDocumentFormatting((params: DocumentFormattingParams) => {
 	}
 
 	return formattingProvider.provideFormatting(document);
+});
+//#endregion
+
+//#region Folding provider
+connection.onFoldingRanges((params: FoldingRangeParams) => {
+	const document = documents.get(params.textDocument.uri);
+	if (!document) {
+		return [];
+	}
+
+	return foldingProvider.provideFoldingRanges(document);
 });
 //#endregion
 

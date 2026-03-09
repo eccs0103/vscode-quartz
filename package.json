@@ -15,7 +15,6 @@
 	"categories": [ 
 		"Programming Languages",
 		"Formatters",
-		"Snippets",
 		"Linters"
 	],
 	"keywords": [
@@ -44,12 +43,6 @@
 				"language": "qrz",
 				"scopeName": "source.qrz",
 				"path": "./syntaxes/qrz.tmLanguage.json"
-			}
-		],
-		"snippets": [
-			{
-				"language": "qrz",
-				"path": "./snippets/qrz.json"
 			}
 		]
 	},

@@ -78,7 +78,8 @@
 				{ "name": "keyword.control.qrz", "match": "\\b(while|repeat|for|in)\\b" },
 				{ "name": "keyword.control.qrz", "match": "\\b(break|continue)\\b" },
 				{ "name": "keyword.control.qrz", "match": "\\b(return)\\b" },
-				{ "name": "keyword.control.qrz", "match": "\\b(use|from)\\b" }
+				{ "name": "keyword.control.qrz", "match": "\\b(use|from)\\b" },
+				{ "name": "keyword.control.qrz", "match": "\\b(to|as|is)\\b" }
 			]
 		},
 		"modifiers": {
