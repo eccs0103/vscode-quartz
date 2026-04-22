@@ -11,35 +11,31 @@ export class FoldingProvider {
 
 		const stack: number[] = [];
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
+		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+			const line = lines[lineIndex];
 			const trimmed = line.trim();
 
 			if (trimmed.length === 0) continue;
 
 			if (trimmed.startsWith("//") && trimmed.includes("#region")) {
-				stack.push(i);
+				stack.push(lineIndex);
 				continue;
 			}
 
 			if (trimmed.startsWith("//") && trimmed.includes("#endregion")) {
 				const startLine = stack.pop();
-				if (startLine !== undefined) {
-					ranges.push({ startLine, endLine: i, kind: FoldingRangeKind.Region });
-				}
+				if (startLine !== undefined) ranges.push({ startLine, endLine: lineIndex, kind: FoldingRangeKind.Region });
 				continue;
 			}
 
 			if (line.includes("{")) {
-				stack.push(i);
+				stack.push(lineIndex);
 				continue;
 			}
 
 			if (line.includes("}") && stack.length > 0) {
 				const startLine = stack.pop();
-				if (startLine !== undefined) {
-					ranges.push({ startLine, endLine: i, kind: FoldingRangeKind.Region });
-				}
+				if (startLine !== undefined) ranges.push({ startLine, endLine: lineIndex, kind: FoldingRangeKind.Region });
 			}
 		}
 

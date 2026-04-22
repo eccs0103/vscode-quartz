@@ -101,17 +101,17 @@ connection.onInitialized(() => {
 //#endregion
 
 //#region Document validation
-function sendDiags(textDocument: TextDocument): void {
-	const diagnostics = diagnosticsProvider.getDiags(textDocument);
+function sendDiagnostics(textDocument: TextDocument): void {
+	const diagnostics = diagnosticsProvider.getDiagnostics(textDocument);
 	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-documents.onDidOpen((e) => {
-	sendDiags(e.document);
+documents.onDidOpen((event) => {
+	sendDiagnostics(event.document);
 });
 
-documents.onDidChangeContent((change) => {
-	sendDiags(change.document);
+documents.onDidChangeContent((event) => {
+	sendDiagnostics(event.document);
 });
 //#endregion
 

@@ -34,54 +34,34 @@ export class CompletionService {
 
 	#getMembersOf(rawType: string): CompletionItem[] {
 		const { base, args } = SymbolService.toGeneric(rawType);
-		const rootCls = this.#symService.runtimeTable.classes.get(base);
-		if (!rootCls) return [];
+		const rootType = this.#symService.runtimeTable.classes.get(base);
+		if (!rootType) return [];
 
-		const subst = SymbolService.toSubst(rootCls.typeParams, args);
+		const subst = SymbolService.toSubst(rootType.typeParams, args);
 		const { methods, fields } = this.#symService.getAllMembers(base);
 
 		const items: CompletionItem[] = [];
 
 		const methodOverloads = new Map<string, typeof methods>();
-		for (const m of methods) {
-			if (m.name.startsWith("[")) continue;
-			const overloads = methodOverloads.get(m.name) ?? [];
-			overloads.push(m);
-			methodOverloads.set(m.name, overloads);
+		for (const method of methods) {
+			if (method.name.startsWith("[")) continue;
+			const overloads = methodOverloads.get(method.name) ?? [];
+			overloads.push(method);
+			methodOverloads.set(method.name, overloads);
 		}
 
-		for (const [mName, overloads] of methodOverloads) {
+		for (const [name, overloads] of methodOverloads) {
 			const first = overloads[0];
-			const paramStr = first.params
-				.map(p => `${p.name} ${SymbolService.mapWith(p.typeName, subst)}`)
-				.join(", ");
-			const retType = SymbolService.mapWith(first.retType, subst);
-			const allSigs = overloads
-				.map(o => {
-					const ps = o.params
-						.map(p => `${p.name} ${SymbolService.mapWith(p.typeName, subst)}`)
-						.join(", ");
-					return `${mName}(${ps}) ${SymbolService.mapWith(o.retType, subst)}`;
-				})
-				.join("\n");
-			items.push({
-				label: mName,
-				kind: CompletionItemKind.Method,
-				detail: `(${paramStr}) ${retType}`,
-				documentation: allSigs
-			});
+			const detail = `(${first.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(first.retType, subst)}`;
+			const documentation = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(overload.retType, subst)}`).join("\n");
+			items.push({ label: name, kind: CompletionItemKind.Method, detail, documentation });
 		}
 
 		const fieldSeen = new Set<string>();
-		for (const f of fields) {
-			if (fieldSeen.has(f.name)) continue;
-			fieldSeen.add(f.name);
-			items.push({
-				label: f.name,
-				kind: CompletionItemKind.Field,
-				detail: SymbolService.mapWith(f.typeName, subst),
-				documentation: `Field of ${base}`
-			});
+		for (const field of fields) {
+			if (fieldSeen.has(field.name)) continue;
+			fieldSeen.add(field.name);
+			items.push({ label: field.name, kind: CompletionItemKind.Field, detail: SymbolService.mapWith(field.typeName, subst), documentation: `Field of ${base}` });
 		}
 
 		return items;
@@ -97,7 +77,7 @@ export class CompletionService {
 			items.push({ label, kind, detail, documentation });
 		};
 
-		for (const kw of KEYWORDS) add(kw, CompletionItemKind.Keyword, "keyword");
+		for (const keyword of KEYWORDS) add(keyword, CompletionItemKind.Keyword, "keyword");
 
 		for (const name of this.#symService.runtimeTable.classes.keys()) {
 			if (name === "workspace") continue;
@@ -105,37 +85,29 @@ export class CompletionService {
 		}
 
 		for (const [name, overloads] of this.#symService.runtimeTable.funcs) {
-			const sigLines = overloads.map(o =>
-				`${name}(${o.params.map(p => `${p.name} ${p.typeName}`).join(", ")}) ${o.retType}`
-			);
-			add(name, CompletionItemKind.Function, sigLines[0], sigLines.join("\n"));
+			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
+			add(name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));
 		}
 
 		for (const [name, overloads] of docTable.funcs) {
-			const sigLines = overloads.map(o =>
-				`${name}(${o.params.map(p => `${p.name} ${p.typeName}`).join(", ")}) ${o.retType}`
-			);
-			add(name, CompletionItemKind.Function, sigLines[0], sigLines.join("\n"));
+			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
+			add(name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));
 		}
 
-		for (const v of this.#symService.runtimeTable.getVarsAt(position.line)) {
-			add(v.name, CompletionItemKind.Variable, v.typeName);
-		}
-		for (const v of docTable.getVarsAt(position.line)) {
-			add(v.name, CompletionItemKind.Variable, v.typeName);
-		}
+		for (const variable of this.#symService.runtimeTable.getVarsAt(position.line)) add(variable.name, CompletionItemKind.Variable, variable.typeName);
+		for (const variable of docTable.getVarsAt(position.line)) add(variable.name, CompletionItemKind.Variable, variable.typeName);
 
 		return items;
 	}
 
 	#lineColToOffset(text: string, line: number, col: number): number {
-		let curLine = 0;
-		let i = 0;
-		while (i < text.length && curLine < line) {
-			if (text[i] === '\n') curLine++;
-			i++;
+		let currentLine = 0;
+		let offset = 0;
+		while (offset < text.length && currentLine < line) {
+			if (text[offset] === "\n") currentLine++;
+			offset++;
 		}
-		return i + col;
+		return offset + col;
 	}
 }
 //#endregion

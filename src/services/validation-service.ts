@@ -21,34 +21,22 @@ export class ValidationService {
 
 			if (this.#isKeyword(identifier)) continue;
 
-			const startsWithUppercase = /^[A-Z]/.test(identifier);
+			const isUpper = /^[A-Z]/.test(identifier);
 
-			if (startsWithUppercase) {
-				if (!isPascalCase(identifier)) {
-					const diagnostic: Diagnostic = {
-						severity: DiagnosticSeverity.Warning,
-						range: {
-							start: textDocument.positionAt(position),
-							end: textDocument.positionAt(position + identifier.length)
-						},
-						message: `Тип "${identifier}" должен быть в PascalCase (например: ${toPascalCase(identifier)})`,
-						source: "quartz-naming"
-					};
-					diagnostics.push(diagnostic);
-				}
-			} else {
-				if (!isSnakeCase(identifier)) {
-					const diagnostic: Diagnostic = {
-						severity: DiagnosticSeverity.Warning,
-						range: {
-							start: textDocument.positionAt(position),
-							end: textDocument.positionAt(position + identifier.length)
-						},
-						message: `Переменная "${identifier}" должна быть в snake_case (например: ${toSnakeCase(identifier)})`,
-						source: "quartz-naming"
-					};
-					diagnostics.push(diagnostic);
-				}
+			if (isUpper && !isPascalCase(identifier)) {
+				diagnostics.push({
+					severity: DiagnosticSeverity.Warning,
+					range: { start: textDocument.positionAt(position), end: textDocument.positionAt(position + identifier.length) },
+					message: `Тип "${identifier}" должен быть в PascalCase (например: ${toPascalCase(identifier)})`,
+					source: "quartz-naming"
+				});
+			} else if (!isUpper && !isSnakeCase(identifier)) {
+				diagnostics.push({
+					severity: DiagnosticSeverity.Warning,
+					range: { start: textDocument.positionAt(position), end: textDocument.positionAt(position + identifier.length) },
+					message: `Переменная "${identifier}" должна быть в snake_case (например: ${toSnakeCase(identifier)})`,
+					source: "quartz-naming"
+				});
 			}
 		}
 

@@ -34,63 +34,47 @@ export class HoverService {
 
 	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
 		const { base, args } = SymbolService.toGeneric(typeName);
-		const cls = this.#symService.runtimeTable.classes.get(base);
-		if (!cls) return null;
+		const typeDef = this.#symService.runtimeTable.classes.get(base);
+		if (!typeDef) return null;
 
-		const subst = SymbolService.toSubst(cls.typeParams, args);
+		const subst = SymbolService.toSubst(typeDef.typeParams, args);
 		const { methods, fields } = this.#symService.getAllMembers(base);
 
-		const matchMethods = methods.filter(m => m.name === memberName && !m.name.startsWith("["));
-		if (matchMethods.length > 0) {
-			const sigs = matchMethods.map(m => {
-				const paramStr = m.params
-					.map(p => `${p.name} ${SymbolService.mapWith(p.typeName, subst)}`)
-					.join(", ");
-				return `${memberName}(${paramStr}) ${SymbolService.mapWith(m.retType, subst)}`;
-			}).join("\n");
-			return this.#md(`\`\`\`quartz\n${sigs}\n\`\`\``);
+		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
+		if (matching.length > 0) {
+			const signatures = matching.map(method => `${memberName}(${method.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(method.retType, subst)}`).join("\n");
+			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
-		const field = fields.find(f => f.name === memberName);
+		const field = fields.find(entry => entry.name === memberName);
 		if (field) return this.#md(`\`\`\`quartz\n${memberName} ${SymbolService.mapWith(field.typeName, subst)}\n\`\`\``);
 
 		return null;
 	}
 
 	#makeHover(word: string, line: number, docTable: SymbolTable): Hover | null {
-		const cls = this.#symService.runtimeTable.classes.get(word) ?? docTable.classes.get(word);
-		if (cls) {
+		const typeDef = this.#symService.runtimeTable.classes.get(word) ?? docTable.classes.get(word);
+		if (typeDef) {
 			const memberLines: string[] = [];
-			for (const f of cls.fields) memberLines.push(`  ${f.name} ${f.typeName}`);
-			for (const m of cls.methods) {
-				if (m.name.startsWith("[")) continue;
-				const paramStr = m.params.map(p => `${p.name} ${p.typeName}`).join(", ");
-				memberLines.push(`  ${m.name}(${paramStr}) ${m.retType}`);
+			for (const field of typeDef.fields) memberLines.push(`  ${field.name} ${field.typeName}`);
+			for (const method of typeDef.methods) {
+				if (method.name.startsWith("[")) continue;
+				memberLines.push(`  ${method.name}(${method.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${method.retType}`);
 			}
-			const typeParamStr = cls.typeParams.length > 0 ? `<${cls.typeParams.join(", ")}>` : "";
-			const header = cls.parent
-				? `${cls.name}${typeParamStr} from ${cls.parent}`
-				: `${cls.name}${typeParamStr}`;
+			const typeParamStr = typeDef.typeParams.length > 0 ? `<${typeDef.typeParams.join(", ")}>` : "";
+			const header = typeDef.parent ? `${typeDef.name}${typeParamStr} from ${typeDef.parent}` : `${typeDef.name}${typeParamStr}`;
 			const body = memberLines.length > 0 ? `\n${memberLines.join("\n")}\n` : "";
 			return this.#md(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
-		const rOverloads = this.#symService.runtimeTable.funcs.get(word) ?? [];
-		const dOverloads = docTable.funcs.get(word) ?? [];
-		const allOverloads = [...rOverloads, ...dOverloads];
+		const allOverloads = [...(this.#symService.runtimeTable.funcs.get(word) ?? []), ...(docTable.funcs.get(word) ?? [])];
 		if (allOverloads.length > 0) {
-			const sigs = allOverloads
-				.map(o => `${o.name}(${o.params.map(p => `${p.name} ${p.typeName}`).join(", ")}) ${o.retType}`)
-				.join("\n");
-			return this.#md(`\`\`\`quartz\n${sigs}\n\`\`\``);
+			const signatures = allOverloads.map(overload => `${overload.name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`).join("\n");
+			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
-		const allVars = [
-			...this.#symService.runtimeTable.getVarsAt(line),
-			...docTable.getVarsAt(line)
-		];
-		const v = allVars.find(x => x.name === word);
-		if (v) return this.#md(`\`\`\`quartz\n${v.name} ${v.typeName}\n\`\`\``);
+		const variable = [...this.#symService.runtimeTable.getVarsAt(line), ...docTable.getVarsAt(line)].find(entry => entry.name === word);
+		if (variable) return this.#md(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
 
 		const info = HOVER_CONTENT.get(word);
 		if (info) return this.#md(info.documentation);
@@ -104,21 +88,21 @@ export class HoverService {
 
 	#wordAtWithStart(text: string, offset: number): { word: string; start: number } | null {
 		const ident = /[A-Za-z_]\w*/g;
-		let m: RegExpExecArray | null;
-		while ((m = ident.exec(text)) !== null) {
-			if (m.index <= offset && offset <= m.index + m[0].length) return { word: m[0], start: m.index };
+		let match: RegExpExecArray | null;
+		while ((match = ident.exec(text)) !== null) {
+			if (match.index <= offset && offset <= match.index + match[0].length) return { word: match[0], start: match.index };
 		}
 		return null;
 	}
 
 	#lineColToOffset(text: string, line: number, col: number): number {
-		let curLine = 0;
-		let i = 0;
-		while (i < text.length && curLine < line) {
-			if (text[i] === "\n") curLine++;
-			i++;
+		let currentLine = 0;
+		let offset = 0;
+		while (offset < text.length && currentLine < line) {
+			if (text[offset] === "\n") currentLine++;
+			offset++;
 		}
-		return i + col;
+		return offset + col;
 	}
 }
 //#endregion

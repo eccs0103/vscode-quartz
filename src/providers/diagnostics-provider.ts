@@ -12,7 +12,7 @@ export class DiagnosticsProvider {
 		this.#validationService = validationService;
 	}
 
-	getDiags(textDocument: TextDocument): Diagnostic[] {
+	getDiagnostics(textDocument: TextDocument): Diagnostic[] {
 		return this.#validationService.validate(textDocument);
 	}
 }

@@ -1,7 +1,7 @@
 "use strict";
 
 import { Lexer, Token, TokenType } from "./lexer.js";
-import { FuncDef, ParamDef, SymbolTable, VarDef } from "./symbol-table.js";
+import { ParamDef, SymbolTable, VarDef } from "./symbol-table.js";
 
 //#region DocParser
 export class DocParser {
@@ -33,15 +33,15 @@ export class DocParser {
 	}
 
 	#isFuncDecl(): boolean {
-		const cur = this.#curr();
-		const nxt = this.#peek(1);
-		return cur.type === TokenType.Identifier && nxt.type === TokenType.Bracket && nxt.value === "(";
+		const current = this.#curr();
+		const next = this.#peek(1);
+		return current.type === TokenType.Identifier && next.type === TokenType.Bracket && next.value === "(";
 	}
 
 	#isVarDecl(): boolean {
-		const cur = this.#curr();
-		const nxt = this.#peek(1);
-		return cur.type === TokenType.Identifier && nxt.type === TokenType.Identifier;
+		const current = this.#curr();
+		const next = this.#peek(1);
+		return current.type === TokenType.Identifier && next.type === TokenType.Identifier;
 	}
 
 	//#endregion
@@ -64,8 +64,8 @@ export class DocParser {
 			endLine: bodyEnd
 		});
 
-		const blk = this.#curr();
-		if (!(blk.type === TokenType.Bracket && blk.value === "{")) return;
+		const bodyOpen = this.#curr();
+		if (!(bodyOpen.type === TokenType.Bracket && bodyOpen.value === "{")) return;
 		this.#advance();
 		this.#readBlock(params, bodyStart, bodyEnd);
 		const closing = this.#curr();
@@ -77,12 +77,10 @@ export class DocParser {
 	//#region Block & statements
 
 	#readBlock(initParams: ParamDef[], blockStart: number, blockEnd: number): void {
-		for (const p of initParams) {
-			this.#table.addVar({ name: p.name, typeName: p.typeName, startLine: blockStart, endLine: blockEnd });
-		}
+		for (const parameter of initParams) this.#table.addVar({ name: parameter.name, typeName: parameter.typeName, startLine: blockStart, endLine: blockEnd });
 		while (!this.#atEOF()) {
-			const t = this.#curr();
-			if (t.type === TokenType.Bracket && t.value === "}") break;
+			const token = this.#curr();
+			if (token.type === TokenType.Bracket && token.value === "}") break;
 			this.#readStatement(blockStart, blockEnd);
 		}
 	}
@@ -94,10 +92,10 @@ export class DocParser {
 			return;
 		}
 
-		const t = this.#curr();
+		const token = this.#curr();
 
-		if (t.type === TokenType.Keyword) {
-			switch (t.value) {
+		if (token.type === TokenType.Keyword) {
+			switch (token.value) {
 			case "if": this.#readIf(scopeStart, scopeEnd); return;
 			case "while": this.#readWhile(scopeStart, scopeEnd); return;
 			case "for": this.#readFor(scopeStart, scopeEnd); return;
@@ -107,17 +105,17 @@ export class DocParser {
 			}
 		}
 
-		if (t.type === TokenType.Bracket && t.value === "{") {
-			const blkStart = t.range.startLine;
-			const blkEnd = this.#findMatchingBrace();
+		if (token.type === TokenType.Bracket && token.value === "{") {
+			const blockStart = token.range.startLine;
+			const blockEnd = this.#findMatchingBrace();
 			this.#advance();
-			this.#readBlock([], blkStart, blkEnd);
+			this.#readBlock([], blockStart, blockEnd);
 			const closing = this.#curr();
 			if (closing.type === TokenType.Bracket && closing.value === "}") this.#advance();
 			return;
 		}
 
-		if (t.type === TokenType.Separator && t.value === ";") {
+		if (token.type === TokenType.Separator && token.value === ";") {
 			this.#advance();
 			return;
 		}
@@ -133,8 +131,8 @@ export class DocParser {
 		this.#advance();
 		this.#skipBalanced("(", ")");
 		this.#readStatement(scopeStart, scopeEnd);
-		const t = this.#curr();
-		if (t.type === TokenType.Keyword && t.value === "else") {
+		const token = this.#curr();
+		if (token.type === TokenType.Keyword && token.value === "else") {
 			this.#advance();
 			this.#readStatement(scopeStart, scopeEnd);
 		}
@@ -155,23 +153,23 @@ export class DocParser {
 		}
 		this.#advance();
 
-		let varName = "";
+		let name = "";
 		let typeName = "";
 
 		const ident = this.#curr();
 		if (ident.type === TokenType.Identifier) {
-			varName = ident.value;
+			name = ident.value;
 			this.#advance();
 			typeName = this.#readType();
-			const inKw = this.#curr();
-			if (inKw.type === TokenType.Keyword && inKw.value === "in") this.#advance();
+			const inKeyword = this.#curr();
+			if (inKeyword.type === TokenType.Keyword && inKeyword.value === "in") this.#advance();
 		}
 
 		let depth = 1;
 		while (!this.#atEOF() && depth > 0) {
-			const t = this.#curr();
-			if (t.type === TokenType.Bracket && t.value === "(") depth++;
-			else if (t.type === TokenType.Bracket && t.value === ")") {
+			const token = this.#curr();
+			if (token.type === TokenType.Bracket && token.value === "(") depth++;
+			else if (token.type === TokenType.Bracket && token.value === ")") {
 				depth--;
 				if (depth === 0) break;
 			}
@@ -185,9 +183,7 @@ export class DocParser {
 			? this.#findMatchingBrace()
 			: scopeEnd;
 
-		if (varName) {
-			this.#table.addVar({ name: varName, typeName, startLine: bodyToken.range.startLine, endLine: bodyEnd });
-		}
+		if (name) this.#table.addVar({ name, typeName, startLine: bodyToken.range.startLine, endLine: bodyEnd });
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
@@ -216,14 +212,14 @@ export class DocParser {
 		const params: ParamDef[] = [];
 
 		while (!this.#atEOF()) {
-			const t = this.#curr();
-			if (t.type === TokenType.Bracket && t.value === ")") break;
-			if (t.type === TokenType.Separator) { this.#advance(); continue; }
-			if (t.type !== TokenType.Identifier) { this.#advance(); continue; }
-			const paramName = t.value;
+			const token = this.#curr();
+			if (token.type === TokenType.Bracket && token.value === ")") break;
+			if (token.type === TokenType.Separator) { this.#advance(); continue; }
+			if (token.type !== TokenType.Identifier) { this.#advance(); continue; }
+			const name = token.value;
 			this.#advance();
-			const type = this.#readType();
-			params.push({ name: paramName, typeName: type });
+			const typeName = this.#readType();
+			params.push({ name, typeName });
 		}
 
 		const close = this.#curr();
@@ -236,22 +232,22 @@ export class DocParser {
 		if (base.type !== TokenType.Identifier) return "";
 		this.#advance();
 
-		const afterBase = this.#curr();
-		if (afterBase.type === TokenType.Operator && afterBase.value === "<") {
+		const next = this.#curr();
+		if (next.type === TokenType.Operator && next.value === "<") {
 			this.#advance();
 			const args: string[] = [];
 			let depth = 1;
 			while (!this.#atEOF() && depth > 0) {
-				const t = this.#curr();
-				if (t.type === TokenType.Operator && t.value === "<") { depth++; this.#advance(); continue; }
-				if (t.type === TokenType.Operator && t.value === ">") {
+				const token = this.#curr();
+				if (token.type === TokenType.Operator && token.value === "<") { depth++; this.#advance(); continue; }
+				if (token.type === TokenType.Operator && token.value === ">") {
 					depth--;
 					if (depth === 0) break;
 					this.#advance();
 					continue;
 				}
-				if (t.type === TokenType.Identifier) { args.push(this.#readType()); continue; }
-				if (t.type === TokenType.Separator && t.value === ",") { this.#advance(); continue; }
+				if (token.type === TokenType.Identifier) { args.push(this.#readType()); continue; }
+				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
 				this.#advance();
 			}
 			const close = this.#curr();
@@ -259,8 +255,8 @@ export class DocParser {
 			return `${base.value}<${args.join(", ")}>`;
 		}
 
-		const maybeQ = this.#curr();
-		if (maybeQ.type === TokenType.Operator && maybeQ.value === "?") {
+		const nullable = this.#curr();
+		if (nullable.type === TokenType.Operator && nullable.value === "?") {
 			this.#advance();
 			return `Nullable<${base.value}>`;
 		}
@@ -274,12 +270,12 @@ export class DocParser {
 
 	#findMatchingBrace(): number {
 		let depth = 0;
-		for (let i = this.#cursor; i < this.#tokens.length; i++) {
-			const t = this.#tokens[i];
-			if (t.type === TokenType.Bracket && t.value === "{") depth++;
-			else if (t.type === TokenType.Bracket && t.value === "}") {
+		for (let index = this.#cursor; index < this.#tokens.length; index++) {
+			const token = this.#tokens[index];
+			if (token.type === TokenType.Bracket && token.value === "{") depth++;
+			else if (token.type === TokenType.Bracket && token.value === "}") {
 				depth--;
-				if (depth === 0) return t.range.endLine;
+				if (depth === 0) return token.range.endLine;
 			}
 		}
 		return Number.MAX_SAFE_INTEGER;
@@ -291,9 +287,9 @@ export class DocParser {
 		this.#advance();
 		let depth = 1;
 		while (!this.#atEOF() && depth > 0) {
-			const t = this.#curr();
-			if (t.type === TokenType.Bracket && t.value === open) depth++;
-			else if (t.type === TokenType.Bracket && t.value === close) {
+			const token = this.#curr();
+			if (token.type === TokenType.Bracket && token.value === open) depth++;
+			else if (token.type === TokenType.Bracket && token.value === close) {
 				depth--;
 				if (depth === 0) break;
 			}
@@ -305,16 +301,16 @@ export class DocParser {
 
 	#skipToSemi(): void {
 		while (!this.#atEOF()) {
-			const t = this.#curr();
-			if (t.type === TokenType.Separator && t.value === ";") { this.#advance(); return; }
-			if (t.type === TokenType.Bracket && t.value === "}") return;
+			const token = this.#curr();
+			if (token.type === TokenType.Separator && token.value === ";") { this.#advance(); return; }
+			if (token.type === TokenType.Bracket && token.value === "}") return;
 			this.#advance();
 		}
 	}
 
 	#skipSemi(): void {
-		const t = this.#curr();
-		if (t.type === TokenType.Separator && t.value === ";") this.#advance();
+		const token = this.#curr();
+		if (token.type === TokenType.Separator && token.value === ";") this.#advance();
 	}
 
 	#curr(): Token {
@@ -324,16 +320,16 @@ export class DocParser {
 	}
 
 	#peek(offset: number): Token {
-		const idx = this.#cursor + offset;
-		return idx < this.#tokens.length
-			? this.#tokens[idx]
+		const index = this.#cursor + offset;
+		return index < this.#tokens.length
+			? this.#tokens[index]
 			: { type: TokenType.EOF, value: "", range: { startLine: 0, startCol: 0, endLine: 0, endCol: 0 } };
 	}
 
 	#advance(): Token {
-		const t = this.#curr();
+		const token = this.#curr();
 		if (this.#cursor < this.#tokens.length) this.#cursor++;
-		return t;
+		return token;
 	}
 
 	#atEOF(): boolean {

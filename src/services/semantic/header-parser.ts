@@ -18,8 +18,8 @@ export class HeaderParser {
 				this.#advance();
 				continue;
 			}
-			const cls = this.#readClass();
-			if (cls) table.addClass(cls);
+			const entry = this.#readClass();
+			if (entry) table.addClass(entry);
 		}
 
 		return table;
@@ -33,9 +33,9 @@ export class HeaderParser {
 		if (this.#curr().type === TokenType.Operator && this.#curr().value === "<") {
 			this.#advance();
 			while (!this.#atEOF()) {
-				const t = this.#curr();
-				if (t.type === TokenType.Operator && t.value === ">") break;
-				if (t.type === TokenType.Identifier) typeParams.push(t.value);
+				const token = this.#curr();
+				if (token.type === TokenType.Operator && token.value === ">") break;
+				if (token.type === TokenType.Identifier) typeParams.push(token.value);
 				this.#advance();
 			}
 			if (this.#curr().type === TokenType.Operator) this.#advance();
@@ -48,8 +48,8 @@ export class HeaderParser {
 		}
 
 		while (!this.#atEOF()) {
-			const t = this.#curr();
-			if (t.type === TokenType.Bracket && t.value === "{") break;
+			const token = this.#curr();
+			if (token.type === TokenType.Bracket && token.value === "{") break;
 			this.#advance();
 		}
 		if (this.#atEOF()) return null;
@@ -59,8 +59,8 @@ export class HeaderParser {
 		const fields: FieldDef[] = [];
 
 		while (!this.#atEOF()) {
-			const t = this.#curr();
-			if (t.type === TokenType.Bracket && t.value === "}") break;
+			const token = this.#curr();
+			if (token.type === TokenType.Bracket && token.value === "}") break;
 			this.#readMember(methods, fields);
 		}
 
@@ -73,19 +73,19 @@ export class HeaderParser {
 
 		if (first.type === TokenType.Bracket && first.value === "[") {
 			this.#advance();
-			let opName = "[";
+			let name = "[";
 			while (!this.#atEOF()) {
-				const t = this.#curr();
-				if (t.type === TokenType.Bracket && t.value === "]") break;
-				opName += t.value;
+				const token = this.#curr();
+				if (token.type === TokenType.Bracket && token.value === "]") break;
+				name += token.value;
 				this.#advance();
 			}
-			opName += "]";
+			name += "]";
 			if (this.#curr().type === TokenType.Bracket) this.#advance();
 			const params = this.#readParams();
 			const retType = this.#readType();
 			this.#skipSemi();
-			methods.push({ name: opName, params, retType });
+			methods.push({ name, params, retType });
 			return;
 		}
 
@@ -94,7 +94,7 @@ export class HeaderParser {
 			return;
 		}
 
-		const memberName = first.value;
+		const name = first.value;
 		this.#advance();
 
 		const next = this.#curr();
@@ -102,11 +102,11 @@ export class HeaderParser {
 			const params = this.#readParams();
 			const retType = this.#readType();
 			this.#skipSemi();
-			methods.push({ name: memberName, params, retType });
+			methods.push({ name, params, retType });
 		} else {
 			const typeName = this.#readType();
 			this.#skipSemi();
-			fields.push({ name: memberName, typeName });
+			fields.push({ name, typeName });
 		}
 	}
 
@@ -117,20 +117,14 @@ export class HeaderParser {
 		const params: ParamDef[] = [];
 
 		while (!this.#atEOF()) {
-			const t = this.#curr();
-			if (t.type === TokenType.Bracket && t.value === ")") break;
-			if (t.type === TokenType.Separator && t.value === ",") {
-				this.#advance();
-				continue;
-			}
-			if (t.type !== TokenType.Identifier) {
-				this.#advance();
-				continue;
-			}
-			const paramName = t.value;
+			const token = this.#curr();
+			if (token.type === TokenType.Bracket && token.value === ")") break;
+			if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
+			if (token.type !== TokenType.Identifier) { this.#advance(); continue; }
+			const name = token.value;
 			this.#advance();
 			const typeName = this.#readType();
-			params.push({ name: paramName, typeName });
+			params.push({ name, typeName });
 		}
 
 		if (this.#curr().type === TokenType.Bracket) this.#advance();
@@ -142,29 +136,23 @@ export class HeaderParser {
 		if (base.type !== TokenType.Identifier) return "";
 		this.#advance();
 
-		const afterBase = this.#curr();
-		if (afterBase.type === TokenType.Operator && afterBase.value === "<") {
+		const next = this.#curr();
+		if (next.type === TokenType.Operator && next.value === "<") {
 			this.#advance();
 			const args: string[] = [];
 			while (!this.#atEOF()) {
-				const t = this.#curr();
-				if (t.type === TokenType.Operator && t.value === ">") break;
-				if (t.type === TokenType.Separator && t.value === ",") {
-					this.#advance();
-					continue;
-				}
-				if (t.type === TokenType.Identifier) {
-					args.push(this.#readType());
-				} else {
-					this.#advance();
-				}
+				const token = this.#curr();
+				if (token.type === TokenType.Operator && token.value === ">") break;
+				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
+				if (token.type === TokenType.Identifier) args.push(this.#readType());
+				else this.#advance();
 			}
 			if (this.#curr().type === TokenType.Operator) this.#advance();
 			return `${base.value}<${args.join(", ")}>`;
 		}
 
-		const afterIdent = this.#curr();
-		if (afterIdent.type === TokenType.Operator && afterIdent.value === "?") {
+		const nullable = this.#curr();
+		if (nullable.type === TokenType.Operator && nullable.value === "?") {
 			this.#advance();
 			return `Nullable<${base.value}>`;
 		}
@@ -173,8 +161,8 @@ export class HeaderParser {
 	}
 
 	#skipSemi(): void {
-		const t = this.#curr();
-		if (t.type === TokenType.Separator && t.value === ";") this.#advance();
+		const token = this.#curr();
+		if (token.type === TokenType.Separator && token.value === ";") this.#advance();
 	}
 
 	#curr(): Token {
@@ -184,9 +172,9 @@ export class HeaderParser {
 	}
 
 	#advance(): Token {
-		const t = this.#curr();
+		const token = this.#curr();
 		if (this.#cursor < this.#tokens.length) this.#cursor++;
-		return t;
+		return token;
 	}
 
 	#atEOF(): boolean {
