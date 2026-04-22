@@ -6,12 +6,4 @@ export const KEYWORDS = new Set([
 	"return", "use", "from", "this", "true", "false", "null",
 	"to", "as", "is"
 ]);
-
-export const BUILT_IN_TYPES = new Set([
-	"Number", "String", "Boolean", "Any", "Character", "Sequence"
-]);
-
-export const BUILT_IN_FUNCTIONS = new Set([
-	"write", "read", "range"
-]);
 //#endregion

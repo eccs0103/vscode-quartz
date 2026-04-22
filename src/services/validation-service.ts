@@ -10,41 +10,35 @@ export class ValidationService {
 	validate(textDocument: TextDocument): Diagnostic[] {
 		const text = textDocument.getText();
 		const diagnostics: Diagnostic[] = [];
-
 		const identifierRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
-
 		let match: RegExpExecArray | null;
 
 		while ((match = identifierRegex.exec(text))) {
 			const identifier = match[1];
-			const position = match.index;
+			const offset = match.index;
 
-			if (this.#isKeyword(identifier)) continue;
+			if (KEYWORDS.has(identifier)) continue;
 
 			const isUpper = /^[A-Z]/.test(identifier);
 
 			if (isUpper && !isPascalCase(identifier)) {
 				diagnostics.push({
 					severity: DiagnosticSeverity.Warning,
-					range: { start: textDocument.positionAt(position), end: textDocument.positionAt(position + identifier.length) },
-					message: `Тип "${identifier}" должен быть в PascalCase (например: ${toPascalCase(identifier)})`,
+					range: { start: textDocument.positionAt(offset), end: textDocument.positionAt(offset + identifier.length) },
+					message: `Type "${identifier}" must be in PascalCase (e.g. ${toPascalCase(identifier)})`,
 					source: "quartz-naming"
 				});
 			} else if (!isUpper && !isSnakeCase(identifier)) {
 				diagnostics.push({
 					severity: DiagnosticSeverity.Warning,
-					range: { start: textDocument.positionAt(position), end: textDocument.positionAt(position + identifier.length) },
-					message: `Переменная "${identifier}" должна быть в snake_case (например: ${toSnakeCase(identifier)})`,
+					range: { start: textDocument.positionAt(offset), end: textDocument.positionAt(offset + identifier.length) },
+					message: `Variable "${identifier}" must be in snake_case (e.g. ${toSnakeCase(identifier)})`,
 					source: "quartz-naming"
 				});
 			}
 		}
 
 		return diagnostics;
-	}
-
-	#isKeyword(name: string): boolean {
-		return KEYWORDS.has(name);
 	}
 }
 //#endregion

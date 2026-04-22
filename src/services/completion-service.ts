@@ -3,28 +3,28 @@
 import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
-import { SymbolTable } from "./symbol-table.js";
+import { FuncDef, SymbolTable } from "./symbol-table.js";
 import { KEYWORDS } from "../models/language-keywords.js";
 
 //#region CompletionService
 export class CompletionService {
-	#symService: SymbolService;
+	#symbolService: SymbolService;
 
-	constructor(symService: SymbolService) {
-		this.#symService = symService;
+	constructor(symbolService: SymbolService) {
+		this.#symbolService = symbolService;
 	}
 
-	getCompletions(document: TextDocument, position: Position, triggerChar?: string): CompletionItem[] {
+	getCompletions(document: TextDocument, position: Position): CompletionItem[] {
 		const text = document.getText();
-		const offset = this.#lineColumnToOffset(text, position.line, position.character);
+		const offset = document.offsetAt(position);
 		const before = text.slice(0, offset);
 
-		const docTable = this.#symService.parse(text);
+		const docTable = this.#symbolService.parse(text);
 
 		const dotMatch = /\.([A-Za-z_]\w*)?$/.exec(before);
 		if (dotMatch) {
 			const dotIndex = before.length - dotMatch[0].length;
-			const receiverType = this.#symService.exprType(before, dotIndex, position.line, docTable);
+			const receiverType = this.#symbolService.exprType(before, dotIndex, position.line, docTable);
 			if (receiverType) return this.#getMembersOf(receiverType);
 			return [];
 		}
@@ -34,11 +34,11 @@ export class CompletionService {
 
 	#getMembersOf(rawType: string): CompletionItem[] {
 		const { base, args } = SymbolService.toGeneric(rawType);
-		const rootType = this.#symService.runtimeTable.classes.get(base);
+		const rootType = this.#symbolService.runtimeTable.classes.get(base);
 		if (!rootType) return [];
 
 		const subst = SymbolService.toSubst(rootType.typeParams, args);
-		const { methods, fields } = this.#symService.getAllMembers(base);
+		const { methods, fields } = this.#symbolService.getAllMembers(base);
 
 		const items: CompletionItem[] = [];
 
@@ -50,19 +50,14 @@ export class CompletionService {
 			methodOverloads.set(method.name, overloads);
 		}
 
-		for (const [name, overloads] of methodOverloads) {
+		for (const [label, overloads] of methodOverloads) {
 			const first = overloads[0];
 			const detail = `(${first.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(first.retType, subst)}`;
-			const documentation = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(overload.retType, subst)}`).join("\n");
-			items.push({ label: name, kind: CompletionItemKind.Method, detail, documentation });
+			const documentation = overloads.map(overload => `${label}(${overload.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(overload.retType, subst)}`).join("\n");
+			items.push({ label, kind: CompletionItemKind.Method, detail, documentation });
 		}
 
-		const fieldSeen = new Set<string>();
-		for (const field of fields) {
-			if (fieldSeen.has(field.name)) continue;
-			fieldSeen.add(field.name);
-			items.push({ label: field.name, kind: CompletionItemKind.Field, detail: SymbolService.mapWith(field.typeName, subst), documentation: `Field of ${base}` });
-		}
+		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: SymbolService.mapWith(typeName, subst), documentation: `Field of ${base}` });
 
 		return items;
 	}
@@ -71,43 +66,33 @@ export class CompletionService {
 		const items: CompletionItem[] = [];
 		const added = new Set<string>();
 
-		const add = (label: string, kind: CompletionItemKind, detail: string, documentation?: string) => {
-			if (added.has(label)) return;
-			added.add(label);
-			items.push({ label, kind, detail, documentation });
-		};
+		for (const keyword of KEYWORDS) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
 
-		for (const keyword of KEYWORDS) add(keyword, CompletionItemKind.Keyword, "keyword");
-
-		for (const name of this.#symService.runtimeTable.classes.keys()) {
+		for (const name of this.#symbolService.runtimeTable.classes.keys()) {
 			if (name === "workspace") continue;
-			add(name, CompletionItemKind.Class, `class ${name}`);
+			this.#addItem(items, added, name, CompletionItemKind.Class, `class ${name}`);
 		}
 
-		for (const [name, overloads] of this.#symService.runtimeTable.funcs) {
-			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
-			add(name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));
-		}
+		this.#addFuncItems(items, added, this.#symbolService.runtimeTable.funcs);
+		this.#addFuncItems(items, added, docTable.funcs);
 
-		for (const [name, overloads] of docTable.funcs) {
-			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
-			add(name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));
-		}
-
-		for (const variable of this.#symService.runtimeTable.getVarsAt(position.line)) add(variable.name, CompletionItemKind.Variable, variable.typeName);
-		for (const variable of docTable.getVarsAt(position.line)) add(variable.name, CompletionItemKind.Variable, variable.typeName);
+		for (const { name, typeName } of this.#symbolService.runtimeTable.getVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName } of docTable.getVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 
 		return items;
 	}
 
-	#lineColumnToOffset(text: string, line: number, column: number): number {
-		let currentLine = 0;
-		let offset = 0;
-		while (offset < text.length && currentLine < line) {
-			if (text[offset] === "\n") currentLine++;
-			offset++;
+	#addFuncItems(items: CompletionItem[], added: Set<string>, funcs: ReadonlyMap<string, FuncDef[]>): void {
+		for (const [name, overloads] of funcs) {
+			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
+			this.#addItem(items, added, name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));
 		}
-		return offset + column;
+	}
+
+	#addItem(items: CompletionItem[], added: Set<string>, label: string, kind: CompletionItemKind, detail: string, documentation?: string): void {
+		if (added.has(label)) return;
+		added.add(label);
+		items.push({ label, kind, detail, documentation });
 	}
 }
 //#endregion

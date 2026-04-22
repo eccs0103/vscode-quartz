@@ -8,23 +8,23 @@ import { HOVER_CONTENT } from "../models/hover-data.js";
 
 //#region HoverService
 export class HoverService {
-	#symService: SymbolService;
+	#symbolService: SymbolService;
 
-	constructor(symService: SymbolService) {
-		this.#symService = symService;
+	constructor(symbolService: SymbolService) {
+		this.#symbolService = symbolService;
 	}
 
 	getHover(document: TextDocument, position: Position): Hover | null {
 		const text = document.getText();
-		const offset = this.#lineColumnToOffset(text, position.line, position.character);
+		const offset = document.offsetAt(position);
 		const found = this.#wordAtWithStart(text, offset);
 		if (!found) return null;
 
 		const { word, start } = found;
-		const docTable = this.#symService.parse(text);
+		const docTable = this.#symbolService.parse(text);
 
 		if (start > 0 && text[start - 1] === ".") {
-			const receiverType = this.#symService.exprType(text, start - 1, position.line, docTable);
+			const receiverType = this.#symbolService.exprType(text, start - 1, position.line, docTable);
 			if (!receiverType) return null;
 			return this.#makeHoverForMember(word, receiverType);
 		}
@@ -34,11 +34,11 @@ export class HoverService {
 
 	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
 		const { base, args } = SymbolService.toGeneric(typeName);
-		const typeDef = this.#symService.runtimeTable.classes.get(base);
+		const typeDef = this.#symbolService.runtimeTable.classes.get(base);
 		if (!typeDef) return null;
 
 		const subst = SymbolService.toSubst(typeDef.typeParams, args);
-		const { methods, fields } = this.#symService.getAllMembers(base);
+		const { methods, fields } = this.#symbolService.getAllMembers(base);
 
 		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
 		if (matching.length > 0) {
@@ -53,7 +53,7 @@ export class HoverService {
 	}
 
 	#makeHover(word: string, line: number, docTable: SymbolTable): Hover | null {
-		const typeDef = this.#symService.runtimeTable.classes.get(word) ?? docTable.classes.get(word);
+		const typeDef = this.#symbolService.runtimeTable.classes.get(word) ?? docTable.classes.get(word);
 		if (typeDef) {
 			const memberLines: string[] = [];
 			for (const field of typeDef.fields) memberLines.push(`  ${field.name} ${field.typeName}`);
@@ -67,17 +67,17 @@ export class HoverService {
 			return this.#md(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
-		const allOverloads = [...(this.#symService.runtimeTable.funcs.get(word) ?? []), ...(docTable.funcs.get(word) ?? [])];
+		const allOverloads = [...(this.#symbolService.runtimeTable.funcs.get(word) ?? []), ...(docTable.funcs.get(word) ?? [])];
 		if (allOverloads.length > 0) {
 			const signatures = allOverloads.map(overload => `${overload.name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`).join("\n");
 			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
-		const variable = [...this.#symService.runtimeTable.getVarsAt(line), ...docTable.getVarsAt(line)].find(entry => entry.name === word);
+		const variable = [...this.#symbolService.runtimeTable.getVarsAt(line), ...docTable.getVarsAt(line)].find(entry => entry.name === word);
 		if (variable) return this.#md(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
 
-		const info = HOVER_CONTENT.get(word);
-		if (info) return this.#md(info.documentation);
+		const documentation = HOVER_CONTENT.get(word);
+		if (documentation) return this.#md(documentation);
 
 		return null;
 	}
@@ -93,16 +93,6 @@ export class HoverService {
 			if (match.index <= offset && offset <= match.index + match[0].length) return { word: match[0], start: match.index };
 		}
 		return null;
-	}
-
-	#lineColumnToOffset(text: string, line: number, column: number): number {
-		let currentLine = 0;
-		let offset = 0;
-		while (offset < text.length && currentLine < line) {
-			if (text[offset] === "\n") currentLine++;
-			offset++;
-		}
-		return offset + column;
 	}
 }
 //#endregion

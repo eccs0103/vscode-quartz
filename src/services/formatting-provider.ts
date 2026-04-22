@@ -24,15 +24,7 @@ export class FormattingProvider {
 			end: { line: lastLine, character: Number.MAX_VALUE }
 		}).length;
 
-		return [
-			TextEdit.replace(
-				Range.create(
-					Position.create(0, 0),
-					Position.create(lastLine, lastChar)
-				),
-				formatted
-			)
-		];
+		return [TextEdit.replace(Range.create(Position.create(0, 0), Position.create(lastLine, lastChar)), formatted)];
 	}
 }
 //#endregion
