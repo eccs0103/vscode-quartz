@@ -2,11 +2,11 @@
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { TextEdit, Range, Position } from "vscode-languageserver/node";
-import { FormattingService } from "../services/formatting-service.js";
+import { FormattingService } from "./formatting-service.js";
 
 //#region Formatting provider
 export class FormattingProvider {
-	readonly #formattingService: FormattingService;
+	#formattingService: FormattingService;
 
 	constructor(formattingService: FormattingService) {
 		this.#formattingService = formattingService;

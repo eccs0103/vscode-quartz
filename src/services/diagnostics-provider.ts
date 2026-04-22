@@ -2,11 +2,11 @@
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Diagnostic } from "vscode-languageserver/node";
-import { ValidationService } from "../services/validation-service.js";
+import { ValidationService } from "./validation-service.js";
 
 //#region Diagnostics provider
 export class DiagnosticsProvider {
-	readonly #validationService: ValidationService;
+	#validationService: ValidationService;
 
 	constructor(validationService: ValidationService) {
 		this.#validationService = validationService;

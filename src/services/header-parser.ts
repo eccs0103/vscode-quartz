@@ -14,7 +14,7 @@ export class HeaderParser {
 		const table = new SymbolTable();
 
 		while (!this.#atEOF()) {
-			if (this.#curr().type !== TokenType.Identifier) {
+			if (this.#current().type !== TokenType.Identifier) {
 				this.#advance();
 				continue;
 			}
@@ -26,29 +26,29 @@ export class HeaderParser {
 	}
 
 	#readClass(): ClassDef | null {
-		const name = this.#curr().value;
+		const name = this.#current().value;
 		this.#advance();
 
 		const typeParams: string[] = [];
-		if (this.#curr().type === TokenType.Operator && this.#curr().value === "<") {
+		if (this.#current().type === TokenType.Operator && this.#current().value === "<") {
 			this.#advance();
 			while (!this.#atEOF()) {
-				const token = this.#curr();
+				const token = this.#current();
 				if (token.type === TokenType.Operator && token.value === ">") break;
 				if (token.type === TokenType.Identifier) typeParams.push(token.value);
 				this.#advance();
 			}
-			if (this.#curr().type === TokenType.Operator) this.#advance();
+			if (this.#current().type === TokenType.Operator) this.#advance();
 		}
 
 		let parent: string | undefined;
-		if (this.#curr().type === TokenType.Identifier && this.#curr().value === "from") {
+		if (this.#current().type === TokenType.Identifier && this.#current().value === "from") {
 			this.#advance();
 			parent = this.#readType();
 		}
 
 		while (!this.#atEOF()) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === "{") break;
 			this.#advance();
 		}
@@ -59,32 +59,32 @@ export class HeaderParser {
 		const fields: FieldDef[] = [];
 
 		while (!this.#atEOF()) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === "}") break;
 			this.#readMember(methods, fields);
 		}
 
-		if (this.#curr().type === TokenType.Bracket) this.#advance();
+		if (this.#current().type === TokenType.Bracket) this.#advance();
 		return { name, typeParams, parent, methods, fields };
 	}
 
 	#readMember(methods: MethodDef[], fields: FieldDef[]): void {
-		const first = this.#curr();
+		const first = this.#current();
 
 		if (first.type === TokenType.Bracket && first.value === "[") {
 			this.#advance();
 			let name = "[";
 			while (!this.#atEOF()) {
-				const token = this.#curr();
+				const token = this.#current();
 				if (token.type === TokenType.Bracket && token.value === "]") break;
 				name += token.value;
 				this.#advance();
 			}
 			name += "]";
-			if (this.#curr().type === TokenType.Bracket) this.#advance();
+			if (this.#current().type === TokenType.Bracket) this.#advance();
 			const params = this.#readParams();
 			const retType = this.#readType();
-			this.#skipSemi();
+			this.#skipSemicolon();
 			methods.push({ name, params, retType });
 			return;
 		}
@@ -97,27 +97,27 @@ export class HeaderParser {
 		const name = first.value;
 		this.#advance();
 
-		const next = this.#curr();
+		const next = this.#current();
 		if (next.type === TokenType.Bracket && next.value === "(") {
 			const params = this.#readParams();
 			const retType = this.#readType();
-			this.#skipSemi();
+			this.#skipSemicolon();
 			methods.push({ name, params, retType });
 		} else {
 			const typeName = this.#readType();
-			this.#skipSemi();
+			this.#skipSemicolon();
 			fields.push({ name, typeName });
 		}
 	}
 
 	#readParams(): ParamDef[] {
-		const open = this.#curr();
+		const open = this.#current();
 		if (!(open.type === TokenType.Bracket && open.value === "(")) return [];
 		this.#advance();
 		const params: ParamDef[] = [];
 
 		while (!this.#atEOF()) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === ")") break;
 			if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
 			if (token.type !== TokenType.Identifier) { this.#advance(); continue; }
@@ -127,31 +127,31 @@ export class HeaderParser {
 			params.push({ name, typeName });
 		}
 
-		if (this.#curr().type === TokenType.Bracket) this.#advance();
+		if (this.#current().type === TokenType.Bracket) this.#advance();
 		return params;
 	}
 
 	#readType(): string {
-		const base = this.#curr();
+		const base = this.#current();
 		if (base.type !== TokenType.Identifier) return "";
 		this.#advance();
 
-		const next = this.#curr();
+		const next = this.#current();
 		if (next.type === TokenType.Operator && next.value === "<") {
 			this.#advance();
 			const args: string[] = [];
 			while (!this.#atEOF()) {
-				const token = this.#curr();
+				const token = this.#current();
 				if (token.type === TokenType.Operator && token.value === ">") break;
 				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
 				if (token.type === TokenType.Identifier) args.push(this.#readType());
 				else this.#advance();
 			}
-			if (this.#curr().type === TokenType.Operator) this.#advance();
+			if (this.#current().type === TokenType.Operator) this.#advance();
 			return `${base.value}<${args.join(", ")}>`;
 		}
 
-		const nullable = this.#curr();
+		const nullable = this.#current();
 		if (nullable.type === TokenType.Operator && nullable.value === "?") {
 			this.#advance();
 			return `Nullable<${base.value}>`;
@@ -160,19 +160,19 @@ export class HeaderParser {
 		return base.value;
 	}
 
-	#skipSemi(): void {
-		const token = this.#curr();
+	#skipSemicolon(): void {
+		const token = this.#current();
 		if (token.type === TokenType.Separator && token.value === ";") this.#advance();
 	}
 
-	#curr(): Token {
+	#current(): Token {
 		return this.#cursor < this.#tokens.length
 			? this.#tokens[this.#cursor]
-			: { type: TokenType.EOF, value: "", range: { startLine: 0, startCol: 0, endLine: 0, endCol: 0 } };
+			: { type: TokenType.EOF, value: "", range: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 } };
 	}
 
 	#advance(): Token {
-		const token = this.#curr();
+		const token = this.#current();
 		if (this.#cursor < this.#tokens.length) this.#cursor++;
 		return token;
 	}

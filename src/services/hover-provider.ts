@@ -2,11 +2,11 @@
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Hover, Position } from "vscode-languageserver/node";
-import { HoverService } from "../services/hover-service.js";
+import { HoverService } from "./hover-service.js";
 
 //#region Hover provider
 export class HoverProvider {
-	readonly #hoverService: HoverService;
+	#hoverService: HoverService;
 
 	constructor(hoverService: HoverService) {
 		this.#hoverService = hoverService;

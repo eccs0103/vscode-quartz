@@ -25,7 +25,7 @@ export class DocParser {
 				this.#readFuncDecl();
 			} else if (this.#isVarDecl()) {
 				this.#readVarDecl(0, Number.MAX_SAFE_INTEGER);
-				this.#skipSemi();
+				this.#skipSemicolon();
 			} else {
 				this.#advance();
 			}
@@ -33,13 +33,13 @@ export class DocParser {
 	}
 
 	#isFuncDecl(): boolean {
-		const current = this.#curr();
+		const current = this.#current();
 		const next = this.#peek(1);
 		return current.type === TokenType.Identifier && next.type === TokenType.Bracket && next.value === "(";
 	}
 
 	#isVarDecl(): boolean {
-		const current = this.#curr();
+		const current = this.#current();
 		const next = this.#peek(1);
 		return current.type === TokenType.Identifier && next.type === TokenType.Identifier;
 	}
@@ -53,7 +53,7 @@ export class DocParser {
 		const params = this.#readParams();
 		const retType = this.#readType();
 
-		const bodyStart = this.#curr().range.startLine;
+		const bodyStart = this.#current().range.startLine;
 		const bodyEnd = this.#findMatchingBrace();
 
 		this.#table.addFunc({
@@ -64,11 +64,11 @@ export class DocParser {
 			endLine: bodyEnd
 		});
 
-		const bodyOpen = this.#curr();
+		const bodyOpen = this.#current();
 		if (!(bodyOpen.type === TokenType.Bracket && bodyOpen.value === "{")) return;
 		this.#advance();
 		this.#readBlock(params, bodyStart, bodyEnd);
-		const closing = this.#curr();
+		const closing = this.#current();
 		if (closing.type === TokenType.Bracket && closing.value === "}") this.#advance();
 	}
 
@@ -79,7 +79,7 @@ export class DocParser {
 	#readBlock(initParams: ParamDef[], blockStart: number, blockEnd: number): void {
 		for (const parameter of initParams) this.#table.addVar({ name: parameter.name, typeName: parameter.typeName, startLine: blockStart, endLine: blockEnd });
 		while (!this.#atEOF()) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === "}") break;
 			this.#readStatement(blockStart, blockEnd);
 		}
@@ -88,20 +88,20 @@ export class DocParser {
 	#readStatement(scopeStart: number, scopeEnd: number): void {
 		if (this.#isVarDecl()) {
 			this.#readVarDecl(scopeStart, scopeEnd);
-			this.#skipSemi();
+			this.#skipSemicolon();
 			return;
 		}
 
-		const token = this.#curr();
+		const token = this.#current();
 
 		if (token.type === TokenType.Keyword) {
 			switch (token.value) {
 			case "if": this.#readIf(scopeStart, scopeEnd); return;
 			case "while": this.#readWhile(scopeStart, scopeEnd); return;
 			case "for": this.#readFor(scopeStart, scopeEnd); return;
-			case "return": this.#skipToSemi(); return;
-			case "break": this.#advance(); this.#skipSemi(); return;
-			case "continue": this.#advance(); this.#skipSemi(); return;
+			case "return": this.#skipToSemicolon(); return;
+			case "break": this.#advance(); this.#skipSemicolon(); return;
+			case "continue": this.#advance(); this.#skipSemicolon(); return;
 			}
 		}
 
@@ -110,7 +110,7 @@ export class DocParser {
 			const blockEnd = this.#findMatchingBrace();
 			this.#advance();
 			this.#readBlock([], blockStart, blockEnd);
-			const closing = this.#curr();
+			const closing = this.#current();
 			if (closing.type === TokenType.Bracket && closing.value === "}") this.#advance();
 			return;
 		}
@@ -120,7 +120,7 @@ export class DocParser {
 			return;
 		}
 
-		this.#skipToSemi();
+		this.#skipToSemicolon();
 	}
 
 	//#endregion
@@ -131,7 +131,7 @@ export class DocParser {
 		this.#advance();
 		this.#skipBalanced("(", ")");
 		this.#readStatement(scopeStart, scopeEnd);
-		const token = this.#curr();
+		const token = this.#current();
 		if (token.type === TokenType.Keyword && token.value === "else") {
 			this.#advance();
 			this.#readStatement(scopeStart, scopeEnd);
@@ -146,9 +146,9 @@ export class DocParser {
 
 	#readFor(scopeStart: number, scopeEnd: number): void {
 		this.#advance();
-		const open = this.#curr();
+		const open = this.#current();
 		if (!(open.type === TokenType.Bracket && open.value === "(")) {
-			this.#skipToSemi();
+			this.#skipToSemicolon();
 			return;
 		}
 		this.#advance();
@@ -156,18 +156,18 @@ export class DocParser {
 		let name = "";
 		let typeName = "";
 
-		const ident = this.#curr();
+		const ident = this.#current();
 		if (ident.type === TokenType.Identifier) {
 			name = ident.value;
 			this.#advance();
 			typeName = this.#readType();
-			const inKeyword = this.#curr();
+			const inKeyword = this.#current();
 			if (inKeyword.type === TokenType.Keyword && inKeyword.value === "in") this.#advance();
 		}
 
 		let depth = 1;
 		while (!this.#atEOF() && depth > 0) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === "(") depth++;
 			else if (token.type === TokenType.Bracket && token.value === ")") {
 				depth--;
@@ -175,10 +175,10 @@ export class DocParser {
 			}
 			this.#advance();
 		}
-		const closeParen = this.#curr();
+		const closeParen = this.#current();
 		if (closeParen.type === TokenType.Bracket && closeParen.value === ")") this.#advance();
 
-		const bodyToken = this.#curr();
+		const bodyToken = this.#current();
 		const bodyEnd = (bodyToken.type === TokenType.Bracket && bodyToken.value === "{")
 			? this.#findMatchingBrace()
 			: scopeEnd;
@@ -196,23 +196,23 @@ export class DocParser {
 		const nameToken = this.#advance();
 		const typeName = this.#readType();
 
-		const colon = this.#curr();
+		const colon = this.#current();
 		if (colon.type === TokenType.Operator && colon.value === ":") {
 			this.#advance();
-			this.#skipToSemi();
+			this.#skipToSemicolon();
 		}
 
 		this.#table.addVar({ name: nameToken.value, typeName, startLine: nameToken.range.startLine, endLine: scopeEnd } as VarDef);
 	}
 
 	#readParams(): ParamDef[] {
-		const open = this.#curr();
+		const open = this.#current();
 		if (!(open.type === TokenType.Bracket && open.value === "(")) return [];
 		this.#advance();
 		const params: ParamDef[] = [];
 
 		while (!this.#atEOF()) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === ")") break;
 			if (token.type === TokenType.Separator) { this.#advance(); continue; }
 			if (token.type !== TokenType.Identifier) { this.#advance(); continue; }
@@ -222,23 +222,23 @@ export class DocParser {
 			params.push({ name, typeName });
 		}
 
-		const close = this.#curr();
+		const close = this.#current();
 		if (close.type === TokenType.Bracket && close.value === ")") this.#advance();
 		return params;
 	}
 
 	#readType(): string {
-		const base = this.#curr();
+		const base = this.#current();
 		if (base.type !== TokenType.Identifier) return "";
 		this.#advance();
 
-		const next = this.#curr();
+		const next = this.#current();
 		if (next.type === TokenType.Operator && next.value === "<") {
 			this.#advance();
 			const args: string[] = [];
 			let depth = 1;
 			while (!this.#atEOF() && depth > 0) {
-				const token = this.#curr();
+				const token = this.#current();
 				if (token.type === TokenType.Operator && token.value === "<") { depth++; this.#advance(); continue; }
 				if (token.type === TokenType.Operator && token.value === ">") {
 					depth--;
@@ -250,12 +250,12 @@ export class DocParser {
 				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
 				this.#advance();
 			}
-			const close = this.#curr();
+			const close = this.#current();
 			if (close.type === TokenType.Operator && close.value === ">") this.#advance();
 			return `${base.value}<${args.join(", ")}>`;
 		}
 
-		const nullable = this.#curr();
+		const nullable = this.#current();
 		if (nullable.type === TokenType.Operator && nullable.value === "?") {
 			this.#advance();
 			return `Nullable<${base.value}>`;
@@ -282,12 +282,12 @@ export class DocParser {
 	}
 
 	#skipBalanced(open: string, close: string): void {
-		const first = this.#curr();
+		const first = this.#current();
 		if (!(first.type === TokenType.Bracket && first.value === open)) return;
 		this.#advance();
 		let depth = 1;
 		while (!this.#atEOF() && depth > 0) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === open) depth++;
 			else if (token.type === TokenType.Bracket && token.value === close) {
 				depth--;
@@ -295,39 +295,39 @@ export class DocParser {
 			}
 			this.#advance();
 		}
-		const closing = this.#curr();
+		const closing = this.#current();
 		if (closing.type === TokenType.Bracket && closing.value === close) this.#advance();
 	}
 
-	#skipToSemi(): void {
+	#skipToSemicolon(): void {
 		while (!this.#atEOF()) {
-			const token = this.#curr();
+			const token = this.#current();
 			if (token.type === TokenType.Separator && token.value === ";") { this.#advance(); return; }
 			if (token.type === TokenType.Bracket && token.value === "}") return;
 			this.#advance();
 		}
 	}
 
-	#skipSemi(): void {
-		const token = this.#curr();
+	#skipSemicolon(): void {
+		const token = this.#current();
 		if (token.type === TokenType.Separator && token.value === ";") this.#advance();
 	}
 
-	#curr(): Token {
+	#current(): Token {
 		return this.#cursor < this.#tokens.length
 			? this.#tokens[this.#cursor]
-			: { type: TokenType.EOF, value: "", range: { startLine: 0, startCol: 0, endLine: 0, endCol: 0 } };
+			: { type: TokenType.EOF, value: "", range: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 } };
 	}
 
 	#peek(offset: number): Token {
 		const index = this.#cursor + offset;
 		return index < this.#tokens.length
 			? this.#tokens[index]
-			: { type: TokenType.EOF, value: "", range: { startLine: 0, startCol: 0, endLine: 0, endCol: 0 } };
+			: { type: TokenType.EOF, value: "", range: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 } };
 	}
 
 	#advance(): Token {
-		const token = this.#curr();
+		const token = this.#current();
 		if (this.#cursor < this.#tokens.length) this.#cursor++;
 		return token;
 	}

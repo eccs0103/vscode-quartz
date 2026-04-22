@@ -12,9 +12,7 @@ import {
 let client: LanguageClient | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-	const serverModule = context.asAbsolutePath(
-		path.join("out", "server.js")
-	);
+	const serverModule = context.asAbsolutePath(path.join("out", "core", "server.js"));
 
 	const debugOptions = { execArgv: ["--nolazy", "--inspect=6009"] };
 

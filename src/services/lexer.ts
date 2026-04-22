@@ -15,9 +15,9 @@ export enum TokenType {
 
 export interface Range {
 	startLine: number;
-	startCol: number;
+	startColumn: number;
 	endLine: number;
-	endCol: number;
+	endColumn: number;
 }
 
 export interface Token {
@@ -32,7 +32,7 @@ export class Lexer {
 	#code: string;
 	#cursor: number = 0;
 	#line: number = 0;
-	#col: number = 0;
+	#column: number = 0;
 
 	#patterns: readonly { regex: RegExp; type: TokenType | null }[] = [
 		{ regex: /^\s+/, type: null },
@@ -68,14 +68,14 @@ export class Lexer {
 
 				const value = match[0];
 				const startLine = this.#line;
-				const startCol = this.#col;
+				const startColumn = this.#column;
 
 				for (const char of value) {
 					if (char === "\n") {
 						this.#line++;
-						this.#col = 0;
+						this.#column = 0;
 					} else {
-						this.#col++;
+						this.#column++;
 					}
 				}
 
@@ -86,7 +86,7 @@ export class Lexer {
 					tokens.push({
 						type: finalType,
 						value,
-						range: { startLine, startCol, endLine: this.#line, endCol: this.#col }
+						range: { startLine, startColumn, endLine: this.#line, endColumn: this.#column }
 					});
 				}
 
@@ -99,9 +99,9 @@ export class Lexer {
 				const char = this.#code[this.#cursor];
 				if (char === "\n") {
 					this.#line++;
-					this.#col = 0;
+					this.#column = 0;
 				} else {
-					this.#col++;
+					this.#column++;
 				}
 				this.#cursor++;
 			}
@@ -110,7 +110,7 @@ export class Lexer {
 		tokens.push({
 			type: TokenType.EOF,
 			value: "",
-			range: { startLine: this.#line, startCol: this.#col, endLine: this.#line, endCol: this.#col }
+			range: { startLine: this.#line, startColumn: this.#column, endLine: this.#line, endColumn: this.#column }
 		});
 
 		return tokens;

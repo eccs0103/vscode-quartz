@@ -3,13 +3,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import { WorkspaceFolder } from "vscode-languageserver/node";
-import { HeaderParser } from "./semantic/header-parser.js";
-import { DocParser } from "./semantic/parser.js";
-import { SymbolTable, MethodDef, FieldDef } from "./semantic/symbol-table.js";
+import { HeaderParser } from "./header-parser.js";
+import { DocParser } from "./parser.js";
+import { SymbolTable, MethodDef, FieldDef } from "./symbol-table.js";
 
 //#region SymbolService
 export class SymbolService {
-	readonly runtimeTable: SymbolTable = new SymbolTable();
+	runtimeTable: SymbolTable = new SymbolTable();
 
 	static toGeneric(typeName: string): { base: string; args: string[] } {
 		const index = typeName.indexOf("<");
@@ -197,13 +197,8 @@ export class SymbolService {
 		const workspace = this.runtimeTable.classes.get("workspace");
 		if (!workspace) return;
 
-		for (const method of workspace.methods) {
-			this.runtimeTable.addFunc({ name: method.name, params: method.params, retType: method.retType, startLine: 0, endLine: Number.MAX_SAFE_INTEGER });
-		}
-
-		for (const field of workspace.fields) {
-			if (!this.runtimeTable.vars.some(variable => variable.name === field.name)) this.runtimeTable.addVar({ name: field.name, typeName: field.typeName, startLine: 0, endLine: Number.MAX_SAFE_INTEGER });
-		}
+		for (const { name, params, retType } of workspace.methods) this.runtimeTable.addFunc({ name, params, retType, startLine: 0, endLine: Number.MAX_SAFE_INTEGER });
+		for (const { name, typeName } of workspace.fields) if (!this.runtimeTable.vars.some(variable => variable.name === name)) this.runtimeTable.addVar({ name, typeName, startLine: 0, endLine: Number.MAX_SAFE_INTEGER });
 	}
 
 	#pathFrom(uri: string): string | null {

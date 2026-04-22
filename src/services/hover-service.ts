@@ -3,12 +3,12 @@
 import { Hover, MarkupKind, Position } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
-import { SymbolTable } from "./semantic/symbol-table.js";
+import { SymbolTable } from "./symbol-table.js";
 import { HOVER_CONTENT } from "../models/hover-data.js";
 
 //#region HoverService
 export class HoverService {
-	readonly #symService: SymbolService;
+	#symService: SymbolService;
 
 	constructor(symService: SymbolService) {
 		this.#symService = symService;
@@ -16,7 +16,7 @@ export class HoverService {
 
 	getHover(document: TextDocument, position: Position): Hover | null {
 		const text = document.getText();
-		const offset = this.#lineColToOffset(text, position.line, position.character);
+		const offset = this.#lineColumnToOffset(text, position.line, position.character);
 		const found = this.#wordAtWithStart(text, offset);
 		if (!found) return null;
 
@@ -95,14 +95,14 @@ export class HoverService {
 		return null;
 	}
 
-	#lineColToOffset(text: string, line: number, col: number): number {
+	#lineColumnToOffset(text: string, line: number, column: number): number {
 		let currentLine = 0;
 		let offset = 0;
 		while (offset < text.length && currentLine < line) {
 			if (text[offset] === "\n") currentLine++;
 			offset++;
 		}
-		return offset + col;
+		return offset + column;
 	}
 }
 //#endregion

@@ -2,11 +2,11 @@
 
 import { CompletionItem, Position } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { CompletionService } from "../services/completion-service.js";
+import { CompletionService } from "./completion-service.js";
 
 //#region Completion provider
 export class CompletionProvider {
-	readonly #completionService: CompletionService;
+	#completionService: CompletionService;
 
 	constructor(completionService: CompletionService) {
 		this.#completionService = completionService;

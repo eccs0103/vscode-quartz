@@ -1,7 +1,6 @@
 "use strict";
 
 //#region Type definitions
-
 export interface ParamDef {
 	name: string;
 	typeName: string;
@@ -40,39 +39,36 @@ export interface VarDef {
 	startLine: number;
 	endLine: number;
 }
-
 //#endregion
 
 //#region SymbolTable
-
 export class SymbolTable {
-	readonly classes: Map<string, ClassDef> = new Map();
-	readonly funcs: Map<string, FuncDef[]> = new Map();
-	readonly vars: VarDef[] = [];
+	classes: Map<string, ClassDef> = new Map();
+	funcs: Map<string, FuncDef[]> = new Map();
+	vars: VarDef[] = [];
 
-	addClass(cls: ClassDef): void {
-		this.classes.set(cls.name, cls);
+	addClass(typeDef: ClassDef): void {
+		this.classes.set(typeDef.name, typeDef);
 	}
 
-	addFunc(fn: FuncDef): void {
-		const overloads = this.funcs.get(fn.name) ?? [];
-		overloads.push(fn);
-		this.funcs.set(fn.name, overloads);
+	addFunc(funcDef: FuncDef): void {
+		const overloads = this.funcs.get(funcDef.name) ?? [];
+		overloads.push(funcDef);
+		this.funcs.set(funcDef.name, overloads);
 	}
 
-	addVar(v: VarDef): void {
-		this.vars.push(v);
+	addVar(varDef: VarDef): void {
+		this.vars.push(varDef);
 	}
 
 	getVarsAt(line: number): VarDef[] {
-		return this.vars.filter(v => line >= v.startLine && line <= v.endLine);
+		return this.vars.filter(variable => line >= variable.startLine && line <= variable.endLine);
 	}
 
 	merge(other: SymbolTable): void {
-		for (const cls of other.classes.values()) this.addClass(cls);
-		for (const overloads of other.funcs.values()) overloads.forEach(fn => this.addFunc(fn));
-		other.vars.forEach(v => this.addVar(v));
+		for (const typeDef of other.classes.values()) this.addClass(typeDef);
+		for (const overloads of other.funcs.values()) overloads.forEach(funcDef => this.addFunc(funcDef));
+		other.vars.forEach(varDef => this.addVar(varDef));
 	}
 }
-
 //#endregion

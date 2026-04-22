@@ -3,12 +3,12 @@
 import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
-import { SymbolTable } from "./semantic/symbol-table.js";
+import { SymbolTable } from "./symbol-table.js";
 import { KEYWORDS } from "../models/language-keywords.js";
 
 //#region CompletionService
 export class CompletionService {
-	readonly #symService: SymbolService;
+	#symService: SymbolService;
 
 	constructor(symService: SymbolService) {
 		this.#symService = symService;
@@ -16,7 +16,7 @@ export class CompletionService {
 
 	getCompletions(document: TextDocument, position: Position, triggerChar?: string): CompletionItem[] {
 		const text = document.getText();
-		const offset = this.#lineColToOffset(text, position.line, position.character);
+		const offset = this.#lineColumnToOffset(text, position.line, position.character);
 		const before = text.slice(0, offset);
 
 		const docTable = this.#symService.parse(text);
@@ -100,14 +100,14 @@ export class CompletionService {
 		return items;
 	}
 
-	#lineColToOffset(text: string, line: number, col: number): number {
+	#lineColumnToOffset(text: string, line: number, column: number): number {
 		let currentLine = 0;
 		let offset = 0;
 		while (offset < text.length && currentLine < line) {
 			if (text[offset] === "\n") currentLine++;
 			offset++;
 		}
-		return offset + col;
+		return offset + column;
 	}
 }
 //#endregion
