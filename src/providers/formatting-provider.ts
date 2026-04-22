@@ -1,8 +1,8 @@
 "use strict";
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { TextEdit, Range, Position } from 'vscode-languageserver/node';
-import { FormattingService } from '../services/formatting-service.js';
+import { TextDocument } from "vscode-languageserver-textdocument";
+import { TextEdit, Range, Position } from "vscode-languageserver/node";
+import { FormattingService } from "../services/formatting-service.js";
 
 //#region Formatting provider
 export class FormattingProvider {
@@ -12,13 +12,11 @@ export class FormattingProvider {
 		this.#formattingService = formattingService;
 	}
 
-	provideFormatting(textDocument: TextDocument): TextEdit[] {
+	getEdits(textDocument: TextDocument): TextEdit[] {
 		const text = textDocument.getText();
-		const formatted = this.#formattingService.formatCode(text);
-		
-		if (formatted === text) {
-			return [];
-		}
+		const formatted = this.#formattingService.format(text);
+
+		if (formatted === text) return [];
 
 		const lastLine = textDocument.lineCount - 1;
 		const lastChar = textDocument.getText({

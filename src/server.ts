@@ -11,22 +11,23 @@ import {
 	DocumentFormattingParams,
 	CompletionParams,
 	HoverParams,
-	FoldingRangeParams
-} from 'vscode-languageserver/node';
+	FoldingRangeParams,
+	WorkspaceFolder
+} from "vscode-languageserver/node";
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { TextDocument } from "vscode-languageserver-textdocument";
 
-import { ValidationService } from './services/validation-service.js';
-import { FormattingService } from './services/formatting-service.js';
-import { CompletionService } from './services/completion-service.js';
-import { HoverService } from './services/hover-service.js';
-import { SymbolService } from './services/symbol-service.js';
+import { ValidationService } from "./services/validation-service.js";
+import { FormattingService } from "./services/formatting-service.js";
+import { CompletionService } from "./services/completion-service.js";
+import { HoverService } from "./services/hover-service.js";
+import { SymbolService } from "./services/symbol-service.js";
 
-import { DiagnosticsProvider } from './providers/diagnostics-provider.js';
-import { FormattingProvider } from './providers/formatting-provider.js';
-import { CompletionProvider } from './providers/completion-provider.js';
-import { HoverProvider } from './providers/hover-provider.js';
-import { FoldingProvider } from './providers/folding-provider.js';
+import { DiagnosticsProvider } from "./providers/diagnostics-provider.js";
+import { FormattingProvider } from "./providers/formatting-provider.js";
+import { CompletionProvider } from "./providers/completion-provider.js";
+import { HoverProvider } from "./providers/hover-provider.js";
+import { FoldingProvider } from "./providers/folding-provider.js";
 
 //#region Connection
 const connection = createConnection(ProposedFeatures.all);
@@ -34,7 +35,7 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
-let workspaceFolders: any[] | null = null;
+let workspaceFolders: WorkspaceFolder[] | null = null;
 //#endregion
 
 //#region Services
@@ -100,60 +101,49 @@ connection.onInitialized(() => {
 //#endregion
 
 //#region Document validation
-function validateDocument(textDocument: TextDocument): void {
-	const diagnostics = diagnosticsProvider.provideDiagnostics(textDocument);
+function sendDiags(textDocument: TextDocument): void {
+	const diagnostics = diagnosticsProvider.getDiags(textDocument);
 	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
 documents.onDidOpen((e) => {
-	validateDocument(e.document);
+	sendDiags(e.document);
 });
 
 documents.onDidChangeContent((change) => {
-	validateDocument(change.document);
+	sendDiags(change.document);
 });
 //#endregion
 
 //#region Completion provider
 connection.onCompletion((params: CompletionParams) => {
 	const document = documents.get(params.textDocument.uri);
-	if (!document) {
-		return [];
-	}
-	return completionProvider.provideCompletion(document, params.position, params.context?.triggerCharacter);
+	if (!document) return [];
+	return completionProvider.getItems(document, params.position, params.context?.triggerCharacter);
 });
 //#endregion
 
 //#region Hover provider
 connection.onHover((params: HoverParams) => {
 	const document = documents.get(params.textDocument.uri);
-	if (!document) {
-		return null;
-	}
-
-	return hoverProvider.provideHover(document, params.position);
+	if (!document) return null;
+	return hoverProvider.getHover(document, params.position);
 });
 //#endregion
 
 //#region Formatting provider
 connection.onDocumentFormatting((params: DocumentFormattingParams) => {
 	const document = documents.get(params.textDocument.uri);
-	if (!document) {
-		return [];
-	}
-
-	return formattingProvider.provideFormatting(document);
+	if (!document) return [];
+	return formattingProvider.getEdits(document);
 });
 //#endregion
 
 //#region Folding provider
 connection.onFoldingRanges((params: FoldingRangeParams) => {
 	const document = documents.get(params.textDocument.uri);
-	if (!document) {
-		return [];
-	}
-
-	return foldingProvider.provideFoldingRanges(document);
+	if (!document) return [];
+	return foldingProvider.getRanges(document);
 });
 //#endregion
 

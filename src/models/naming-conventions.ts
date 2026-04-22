@@ -16,14 +16,14 @@ export function toPascalCase(str: string): string {
 	return str
 		.split(/[_\s]+/)
 		.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-		.join('');
+		.join("");
 }
 
 export function toSnakeCase(str: string): string {
 	return str
-		.replace(/([A-Z])/g, '_$1')
+		.replace(/([A-Z])/g, "_$1")
 		.toLowerCase()
-		.replace(/^_/, '')
-		.replace(/[_\s]+/g, '_');
+		.replace(/^_/, "")
+		.replace(/[_\s]+/g, "_");
 }
 //#endregion

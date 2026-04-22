@@ -2,7 +2,7 @@
 
 //#region Formatting service
 export class FormattingService {
-	formatCode(code: string): string {
+	format(code: string): string {
 		const lines = code.split('\n');
 		const formatted: string[] = [];
 		let indentLevel = 0;

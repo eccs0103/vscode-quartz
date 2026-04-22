@@ -1,13 +1,13 @@
 "use strict";
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver/node';
-import { KEYWORDS } from '../models/language-keywords.js';
-import { isPascalCase, isSnakeCase, toPascalCase, toSnakeCase } from '../models/naming-conventions.js';
+import { TextDocument } from "vscode-languageserver-textdocument";
+import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
+import { KEYWORDS } from "../models/language-keywords.js";
+import { isPascalCase, isSnakeCase, toPascalCase, toSnakeCase } from "../models/naming-conventions.js";
 
 //#region Validation service
 export class ValidationService {
-	validateDocument(textDocument: TextDocument): Diagnostic[] {
+	validate(textDocument: TextDocument): Diagnostic[] {
 		const text = textDocument.getText();
 		const diagnostics: Diagnostic[] = [];
 
@@ -19,9 +19,7 @@ export class ValidationService {
 			const identifier = match[1];
 			const position = match.index;
 
-			if (this.#isKeyword(identifier)) {
-				continue;
-			}
+			if (this.#isKeyword(identifier)) continue;
 
 			const startsWithUppercase = /^[A-Z]/.test(identifier);
 
@@ -34,7 +32,7 @@ export class ValidationService {
 							end: textDocument.positionAt(position + identifier.length)
 						},
 						message: `Тип "${identifier}" должен быть в PascalCase (например: ${toPascalCase(identifier)})`,
-						source: 'quartz-naming'
+						source: "quartz-naming"
 					};
 					diagnostics.push(diagnostic);
 				}
@@ -47,7 +45,7 @@ export class ValidationService {
 							end: textDocument.positionAt(position + identifier.length)
 						},
 						message: `Переменная "${identifier}" должна быть в snake_case (например: ${toSnakeCase(identifier)})`,
-						source: 'quartz-naming'
+						source: "quartz-naming"
 					};
 					diagnostics.push(diagnostic);
 				}

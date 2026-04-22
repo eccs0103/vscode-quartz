@@ -1,20 +1,22 @@
-import * as path from 'path';
-import * as vscode from 'vscode';
+"use strict";
+
+import * as path from "path";
+import * as vscode from "vscode";
 import {
 	LanguageClient,
 	LanguageClientOptions,
 	ServerOptions,
 	TransportKind
-} from 'vscode-languageclient/node';
+} from "vscode-languageclient/node";
 
-let client: LanguageClient;
+let client: LanguageClient | undefined;
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext): void {
 	const serverModule = context.asAbsolutePath(
-		path.join('out', 'server.js')
+		path.join("out", "server.js")
 	);
 
-	const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
+	const debugOptions = { execArgv: ["--nolazy", "--inspect=6009"] };
 
 	const serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc },
@@ -26,15 +28,15 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 
 	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file', language: 'qrz' }],
+		documentSelector: [{ scheme: "file", language: "qrz" }],
 		synchronize: {
-			fileEvents: vscode.workspace.createFileSystemWatcher('**/.qrz')
+			fileEvents: vscode.workspace.createFileSystemWatcher("**/.qrz")
 		}
 	};
 
 	client = new LanguageClient(
-		'quartzLanguageServer',
-		'Quartz Language Server',
+		"quartzLanguageServer",
+		"Quartz Language Server",
 		serverOptions,
 		clientOptions
 	);
@@ -43,8 +45,6 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate(): Thenable<void> | undefined {
-	if (!client) {
-		return undefined;
-	}
+	if (!client) return undefined;
 	return client.stop();
 }
