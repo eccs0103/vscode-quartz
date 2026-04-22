@@ -233,25 +233,10 @@ export class DocParser {
 			let depth = 1;
 			while (!this.#atEOF() && depth > 0) {
 				const token = this.#current();
-				if (token.type === TokenType.Operator && token.value === "<") {
-					depth++;
-					this.#advance();
-					continue;
-				}
-				if (token.type === TokenType.Operator && token.value === ">") {
-					depth--;
-					if (depth === 0) break;
-					this.#advance();
-					continue;
-				}
-				if (token.type === TokenType.Identifier) {
-					typeArgs.push(this.#readType());
-					continue;
-				}
-				if (token.type === TokenType.Separator && token.value === ",") {
-					this.#advance();
-					continue;
-				}
+				if (token.type === TokenType.Operator && token.value === "<") { depth++; this.#advance(); continue; }
+				if (token.type === TokenType.Operator && token.value === ">") { depth--; if (depth === 0) break; this.#advance(); continue; }
+				if (token.type === TokenType.Identifier) { typeArgs.push(this.#readType()); continue; }
+				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
 				this.#advance();
 			}
 			const close = this.#current();
@@ -339,6 +324,7 @@ export class DocParser {
 	#atEOF(): boolean {
 		return this.#cursor >= this.#tokens.length || this.#tokens[this.#cursor].type === TokenType.EOF;
 	}
+
 	//#endregion
 }
 //#endregion

@@ -4,7 +4,7 @@ import { CompletionItem, CompletionItemKind, Position } from "vscode-languageser
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { FuncDef, SymbolTable } from "./symbol-table.js";
-import { KEYWORDS } from "../models/language-keywords.js";
+import { LanguageKeywords } from "../models/language-keywords.js";
 
 //#region CompletionService
 export class CompletionService {
@@ -34,7 +34,7 @@ export class CompletionService {
 
 	#getMembersOf(rawType: string): CompletionItem[] {
 		const { base, typeArgs } = SymbolService.toGeneric(rawType);
-		const rootType = this.#symbolService.runtimeTable.classes.get(base);
+		const rootType = this.#symbolService.getClass(base);
 		if (!rootType) return [];
 
 		const substitution = SymbolService.toSubstitution(rootType.typeParams, typeArgs);
@@ -66,17 +66,17 @@ export class CompletionService {
 		const items: CompletionItem[] = [];
 		const added = new Set<string>();
 
-		for (const keyword of KEYWORDS) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
+		for (const keyword of LanguageKeywords.values()) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
 
-		for (const name of this.#symbolService.runtimeTable.classes.keys()) {
+		for (const name of this.#symbolService.typeNames()) {
 			if (name === "workspace") continue;
 			this.#addItem(items, added, name, CompletionItemKind.Class, `class ${name}`);
 		}
 
-		this.#addFuncItems(items, added, this.#symbolService.runtimeTable.funcs);
+		this.#addFuncItems(items, added, this.#symbolService.libFuncs());
 		this.#addFuncItems(items, added, docTable.funcs);
 
-		for (const { name, typeName } of this.#symbolService.runtimeTable.getVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName } of this.#symbolService.libVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 		for (const { name, typeName } of docTable.getVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 
 		return items;

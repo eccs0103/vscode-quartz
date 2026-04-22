@@ -28,7 +28,7 @@
 	"activationEvents": [
 		"onLanguage:qrz"
 	],
-	"main": "./out/core/extension.js",
+	"main": "./out/controllers/extension.js",
 	"contributes": {
 		"languages": [
 			{

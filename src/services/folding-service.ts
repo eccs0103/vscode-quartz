@@ -3,12 +3,11 @@
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
 
-//#region Folding provider
-export class FoldingProvider {
+//#region FoldingService
+export class FoldingService {
 	getRanges(document: TextDocument): FoldingRange[] {
 		const ranges: FoldingRange[] = [];
 		const lines = document.getText().split(/\r?\n/);
-
 		const stack: number[] = [];
 
 		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {

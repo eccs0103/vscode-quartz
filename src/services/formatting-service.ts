@@ -1,8 +1,20 @@
 "use strict";
 
+import { TextDocument } from "vscode-languageserver-textdocument";
+import { TextEdit, Range, Position } from "vscode-languageserver/node";
+
 //#region Formatting service
 export class FormattingService {
-	format(code: string): string {
+	getEdits(document: TextDocument): TextEdit[] {
+		const text = document.getText();
+		const formatted = this.#format(text);
+		if (formatted === text) return [];
+		const lastLine = document.lineCount - 1;
+		const lastChar = document.getText({ start: { line: lastLine, character: 0 }, end: { line: lastLine, character: Number.MAX_VALUE } }).length;
+		return [TextEdit.replace(Range.create(Position.create(0, 0), Position.create(lastLine, lastChar)), formatted)];
+	}
+
+	#format(code: string): string {
 		const lines = code.split("\n");
 		const formatted: string[] = [];
 		let level = 0;

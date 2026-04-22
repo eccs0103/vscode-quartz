@@ -2,8 +2,8 @@
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
-import { KEYWORDS } from "../models/language-keywords.js";
-import { isPascalCase, isSnakeCase, toPascalCase, toSnakeCase } from "../models/naming-conventions.js";
+import { LanguageKeywords } from "../models/language-keywords.js";
+import { NamingConventions } from "../models/naming-conventions.js";
 
 //#region Validation service
 export class ValidationService {
@@ -17,22 +17,22 @@ export class ValidationService {
 			const identifier = match[1];
 			const offset = match.index;
 
-			if (KEYWORDS.has(identifier)) continue;
+			if (LanguageKeywords.has(identifier)) continue;
 
 			const isUpper = /^[A-Z]/.test(identifier);
 
-			if (isUpper && !isPascalCase(identifier)) {
+			if (isUpper && !NamingConventions.isPascalCase(identifier)) {
 				diagnostics.push({
 					severity: DiagnosticSeverity.Warning,
 					range: { start: textDocument.positionAt(offset), end: textDocument.positionAt(offset + identifier.length) },
-					message: `Type "${identifier}" must be in PascalCase (e.g. ${toPascalCase(identifier)})`,
+					message: `Type "${identifier}" must be in PascalCase (e.g. ${NamingConventions.toPascalCase(identifier)})`,
 					source: "quartz-naming"
 				});
-			} else if (!isUpper && !isSnakeCase(identifier)) {
+			} else if (!isUpper && !NamingConventions.isSnakeCase(identifier)) {
 				diagnostics.push({
 					severity: DiagnosticSeverity.Warning,
 					range: { start: textDocument.positionAt(offset), end: textDocument.positionAt(offset + identifier.length) },
-					message: `Variable "${identifier}" must be in snake_case (e.g. ${toSnakeCase(identifier)})`,
+					message: `Variable "${identifier}" must be in snake_case (e.g. ${NamingConventions.toSnakeCase(identifier)})`,
 					source: "quartz-naming"
 				});
 			}

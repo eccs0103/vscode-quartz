@@ -4,7 +4,7 @@ import { Hover, MarkupKind, Position } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
-import { HOVER_CONTENT } from "../models/hover-data.js";
+import { HoverData } from "../models/hover-data.js";
 
 //#region WordMatch
 class WordMatch {
@@ -46,7 +46,7 @@ export class HoverService {
 
 	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
 		const { base, typeArgs } = SymbolService.toGeneric(typeName);
-		const typeDef = this.#symbolService.runtimeTable.classes.get(base);
+		const typeDef = this.#symbolService.getClass(base);
 		if (!typeDef) return null;
 
 		const substitution = SymbolService.toSubstitution(typeDef.typeParams, typeArgs);
@@ -65,7 +65,7 @@ export class HoverService {
 	}
 
 	#makeHover(word: string, line: number, docTable: SymbolTable): Hover | null {
-		const typeDef = this.#symbolService.runtimeTable.classes.get(word) ?? docTable.classes.get(word);
+		const typeDef = this.#symbolService.getClass(word) ?? docTable.classes.get(word);
 		if (typeDef) {
 			const memberLines: string[] = [];
 			for (const field of typeDef.fields) memberLines.push(`  ${field.name} ${field.typeName}`);
@@ -79,16 +79,16 @@ export class HoverService {
 			return this.#md(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
-		const allOverloads = [...(this.#symbolService.runtimeTable.funcs.get(word) ?? []), ...(docTable.funcs.get(word) ?? [])];
+		const allOverloads = [...(this.#symbolService.libFuncs().get(word) ?? []), ...(docTable.funcs.get(word) ?? [])];
 		if (allOverloads.length > 0) {
 			const signatures = allOverloads.map(overload => `${overload.name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`).join("\n");
 			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
-		const variable = [...this.#symbolService.runtimeTable.getVarsAt(line), ...docTable.getVarsAt(line)].find(entry => entry.name === word);
+		const variable = [...this.#symbolService.libVarsAt(line), ...docTable.getVarsAt(line)].find(entry => entry.name === word);
 		if (variable) return this.#md(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
 
-		const documentation = HOVER_CONTENT.get(word);
+		const documentation = HoverData.get(word);
 		if (documentation) return this.#md(documentation);
 
 		return null;
