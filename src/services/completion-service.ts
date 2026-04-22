@@ -24,30 +24,16 @@ export class CompletionService {
 
 		const docTable = this.#symService.parse(text);
 
-		// Member completion: triggered by '.' or typing after 'identifier.'
-		const memberMatch = /\b([A-Za-z_]\w*)\.([A-Za-z_]\w*)?$/.exec(before);
-		if (memberMatch || triggerChar === '.') {
-			const targetName = memberMatch ? memberMatch[1] : this.identBefore(before);
-			if (targetName) {
-				const typeName = this.findType(targetName, position.line, docTable);
-				if (typeName) return this.getMembersOf(typeName);
-			}
-			// Dot-context but type unresolvable — show nothing rather than all keywords
+		// Dot-completion context: handles obj.m, call().m, arr[0].m, and chains
+		const dotMatch = /\.([A-Za-z_]\w*)?$/.exec(before);
+		if (dotMatch) {
+			const dotIndex = before.length - dotMatch[0].length;
+			const receiverType = this.#symService.resolveExprType(before, dotIndex, position.line, docTable);
+			if (receiverType) return this.getMembersOf(receiverType);
 			return [];
 		}
 
 		return this.getContextItems(position, docTable);
-	}
-
-	// Find the last identifier token just before the dot in raw text
-	private identBefore(before: string): string | null {
-		const m = /\b([A-Za-z_]\w*)\s*\.$/.exec(before);
-		return m ? m[1] : null;
-	}
-
-	// Resolve the declared type of a name in scope
-	private findType(name: string, line: number, docTable: SymbolTable): string | null {
-		return this.#symService.resolveType(name, line, docTable);
 	}
 
 	// Returns CompletionItems for all accessible members of rawType, including inherited

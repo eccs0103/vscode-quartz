@@ -23,13 +23,11 @@ export class HoverService {
 		const { word, start } = found;
 		const docTable = this.#symService.parse(text);
 
-		// Dot-access context: e.g. obj.method or obj.field
+		// Dot-access context: handles obj.member, call().member, arr[0].member, chains
 		if (start > 0 && text[start - 1] === '.') {
-			const objFound = this.wordAtWithStart(text, start - 2);
-			if (!objFound) return null;
-			const objType = this.#symService.resolveType(objFound.word, position.line, docTable);
-			if (!objType) return null;
-			return this.makeHoverForMember(word, objType);
+			const receiverType = this.#symService.resolveExprType(text, start - 1, position.line, docTable);
+			if (!receiverType) return null;
+			return this.makeHoverForMember(word, receiverType);
 		}
 
 		return this.makeHover(word, position.line, docTable);
