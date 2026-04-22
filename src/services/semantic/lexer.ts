@@ -43,7 +43,8 @@ export class Lexer {
     ];
 
     private readonly keywords = new Set([
-        "if", "else", "while", "for", "true", "false", "function", "return", "class", "namespace", "to", "as", "is"
+        // Exact set from Quartz.Domain/Definitions.cs: Keywords.All
+        "true", "false", "null", "if", "else", "while", "for", "in", "continue", "break", "return"
     ]);
 
     constructor(code: string) {

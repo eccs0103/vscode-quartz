@@ -20,6 +20,7 @@ import { ValidationService } from './services/validation-service.js';
 import { FormattingService } from './services/formatting-service.js';
 import { CompletionService } from './services/completion-service.js';
 import { HoverService } from './services/hover-service.js';
+import { SymbolService } from './services/symbol-service.js';
 
 import { DiagnosticsProvider } from './providers/diagnostics-provider.js';
 import { FormattingProvider } from './providers/formatting-provider.js';
@@ -39,8 +40,9 @@ let workspaceFolders: any[] | null = null;
 //#region Services
 const validationService = new ValidationService();
 const formattingService = new FormattingService();
-const completionService = new CompletionService();
-const hoverService = new HoverService();
+const symbolService = new SymbolService();
+const completionService = new CompletionService(symbolService);
+const hoverService = new HoverService(symbolService);
 //#endregion
 
 //#region Providers
@@ -92,7 +94,7 @@ connection.onInitialized(() => {
 		connection.client.register(DidChangeConfigurationNotification.type, undefined);
 	}
 	if (workspaceFolders) {
-		completionService.initialize(workspaceFolders);
+		symbolService.initialize(workspaceFolders);
 	}
 });
 //#endregion
@@ -118,7 +120,7 @@ connection.onCompletion((params: CompletionParams) => {
 	if (!document) {
 		return [];
 	}
-	return completionProvider.provideCompletion(document);
+	return completionProvider.provideCompletion(document, params.position, params.context?.triggerCharacter);
 });
 //#endregion
 
