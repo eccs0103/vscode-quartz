@@ -8,7 +8,12 @@ export class LanguageKeywords {
 		"to", "as", "is"
 	]);
 
-	static has(keyword: string): boolean { return LanguageKeywords.#all.has(keyword); }
-	static values(): ReadonlySet<string> { return LanguageKeywords.#all; }
+	static has(keyword: string): boolean {
+		return LanguageKeywords.#all.has(keyword);
+	}
+
+	static values(): ReadonlySet<string> {
+		return LanguageKeywords.#all;
+	}
 }
 //#endregion

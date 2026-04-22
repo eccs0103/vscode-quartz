@@ -220,9 +220,20 @@ export class SymbolService {
 		}
 	}
 
-	getClass(name: string): ClassDef | undefined { return this.#runtimeTable.classes.get(name); }
-	typeNames(): IterableIterator<string> { return this.#runtimeTable.classes.keys(); }
-	libFuncs(): Map<string, FuncDef[]> { return this.#runtimeTable.funcs; }
-	libVarsAt(line: number): VarDef[] { return this.#runtimeTable.getVarsAt(line); }
+	getClass(name: string): ClassDef | undefined {
+		return this.#runtimeTable.classes.get(name);
+	}
+
+	typeNames(): IterableIterator<string> {
+		return this.#runtimeTable.classes.keys();
+	}
+
+	libFuncs(): Map<string, FuncDef[]> {
+		return this.#runtimeTable.funcs;
+	}
+
+	libVarsAt(line: number): VarDef[] {
+		return this.#runtimeTable.getVarsAt(line);
+	}
 }
 //#endregion

@@ -29,5 +29,11 @@ class ExtensionController {
 //#endregion
 
 const controller = new ExtensionController();
-export function activate(context: vscode.ExtensionContext): void { controller.start(context); }
-export function deactivate(): Thenable<void> | undefined { return controller.stop(); }
+
+export function activate(context: vscode.ExtensionContext): void {
+	controller.start(context);
+}
+
+export function deactivate(): Thenable<void> | undefined {
+	return controller.stop();
+}

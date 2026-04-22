@@ -7,7 +7,7 @@ import { FuncDef, ParamDef, SymbolTable, VarDef } from "./symbol-table.js";
 export class DocParser {
 	#tokens: Token[] = [];
 	#cursor = 0;
-	#table!: SymbolTable;
+	#table: SymbolTable = new SymbolTable();
 
 	parse(code: string): SymbolTable {
 		this.#tokens = new Lexer(code).tokenize();
