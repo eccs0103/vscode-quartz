@@ -2,12 +2,7 @@
 
 import * as path from "path";
 import * as vscode from "vscode";
-import {
-	LanguageClient,
-	LanguageClientOptions,
-	ServerOptions,
-	TransportKind
-} from "vscode-languageclient/node";
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from "vscode-languageclient/node";
 
 let client: LanguageClient | undefined;
 
@@ -32,12 +27,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		}
 	};
 
-	client = new LanguageClient(
-		"quartzLanguageServer",
-		"Quartz Language Server",
-		serverOptions,
-		clientOptions
-	);
+	client = new LanguageClient("quartzLanguageServer", "Quartz Language Server", serverOptions, clientOptions);
 
 	client.start();
 }

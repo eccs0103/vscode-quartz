@@ -33,11 +33,11 @@ export class CompletionService {
 	}
 
 	#getMembersOf(rawType: string): CompletionItem[] {
-		const { base, args } = SymbolService.toGeneric(rawType);
+		const { base, typeArgs } = SymbolService.toGeneric(rawType);
 		const rootType = this.#symbolService.runtimeTable.classes.get(base);
 		if (!rootType) return [];
 
-		const subst = SymbolService.toSubst(rootType.typeParams, args);
+		const substitution = SymbolService.toSubstitution(rootType.typeParams, typeArgs);
 		const { methods, fields } = this.#symbolService.getAllMembers(base);
 
 		const items: CompletionItem[] = [];
@@ -52,12 +52,12 @@ export class CompletionService {
 
 		for (const [label, overloads] of methodOverloads) {
 			const first = overloads[0];
-			const detail = `(${first.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(first.retType, subst)}`;
-			const documentation = overloads.map(overload => `${label}(${overload.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(overload.retType, subst)}`).join("\n");
+			const detail = `(${first.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${SymbolService.mapWith(first.retType, substitution)}`;
+			const documentation = overloads.map(overload => `${label}(${overload.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${SymbolService.mapWith(overload.retType, substitution)}`).join("\n");
 			items.push({ label, kind: CompletionItemKind.Method, detail, documentation });
 		}
 
-		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: SymbolService.mapWith(typeName, subst), documentation: `Field of ${base}` });
+		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: SymbolService.mapWith(typeName, substitution), documentation: `Field of ${base}` });
 
 		return items;
 	}

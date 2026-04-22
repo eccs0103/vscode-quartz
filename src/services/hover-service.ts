@@ -6,6 +6,18 @@ import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
 import { HOVER_CONTENT } from "../models/hover-data.js";
 
+//#region WordMatch
+class WordMatch {
+	word: string;
+	start: number;
+
+	constructor(word: string, start: number) {
+		this.word = word;
+		this.start = start;
+	}
+}
+//#endregion
+
 //#region HoverService
 export class HoverService {
 	#symbolService: SymbolService;
@@ -33,21 +45,21 @@ export class HoverService {
 	}
 
 	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
-		const { base, args } = SymbolService.toGeneric(typeName);
+		const { base, typeArgs } = SymbolService.toGeneric(typeName);
 		const typeDef = this.#symbolService.runtimeTable.classes.get(base);
 		if (!typeDef) return null;
 
-		const subst = SymbolService.toSubst(typeDef.typeParams, args);
+		const substitution = SymbolService.toSubstitution(typeDef.typeParams, typeArgs);
 		const { methods, fields } = this.#symbolService.getAllMembers(base);
 
 		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
 		if (matching.length > 0) {
-			const signatures = matching.map(method => `${memberName}(${method.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, subst)}`).join(", ")}) ${SymbolService.mapWith(method.retType, subst)}`).join("\n");
+			const signatures = matching.map(method => `${memberName}(${method.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${SymbolService.mapWith(method.retType, substitution)}`).join("\n");
 			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
 		const field = fields.find(entry => entry.name === memberName);
-		if (field) return this.#md(`\`\`\`quartz\n${memberName} ${SymbolService.mapWith(field.typeName, subst)}\n\`\`\``);
+		if (field) return this.#md(`\`\`\`quartz\n${memberName} ${SymbolService.mapWith(field.typeName, substitution)}\n\`\`\``);
 
 		return null;
 	}
@@ -86,11 +98,11 @@ export class HoverService {
 		return { contents: { kind: MarkupKind.Markdown, value } };
 	}
 
-	#wordAtWithStart(text: string, offset: number): { word: string; start: number } | null {
+	#wordAtWithStart(text: string, offset: number): WordMatch | null {
 		const ident = /[A-Za-z_]\w*/g;
 		let match: RegExpExecArray | null;
 		while ((match = ident.exec(text)) !== null) {
-			if (match.index <= offset && offset <= match.index + match[0].length) return { word: match[0], start: match.index };
+			if (match.index <= offset && offset <= match.index + match[0].length) return new WordMatch(match[0], match.index);
 		}
 		return null;
 	}

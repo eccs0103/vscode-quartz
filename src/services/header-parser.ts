@@ -1,6 +1,6 @@
 "use strict";
 
-import { Lexer, Token, TokenType } from "./lexer.js";
+import { Lexer, Token, TokenRange, TokenType } from "./lexer.js";
 import { ClassDef, FieldDef, MethodDef, ParamDef, SymbolTable } from "./symbol-table.js";
 
 //#region HeaderParser
@@ -65,7 +65,7 @@ export class HeaderParser {
 		}
 
 		if (this.#current().type === TokenType.Bracket) this.#advance();
-		return { name, typeParams, parent, methods, fields };
+		return new ClassDef(name, typeParams, parent, methods, fields);
 	}
 
 	#readMember(methods: MethodDef[], fields: FieldDef[]): void {
@@ -85,7 +85,7 @@ export class HeaderParser {
 			const params = this.#readParams();
 			const retType = this.#readType();
 			this.#skipSemicolon();
-			methods.push({ name, params, retType });
+			methods.push(new MethodDef(name, params, retType));
 			return;
 		}
 
@@ -102,11 +102,11 @@ export class HeaderParser {
 			const params = this.#readParams();
 			const retType = this.#readType();
 			this.#skipSemicolon();
-			methods.push({ name, params, retType });
+			methods.push(new MethodDef(name, params, retType));
 		} else {
 			const typeName = this.#readType();
 			this.#skipSemicolon();
-			fields.push({ name, typeName });
+			fields.push(new FieldDef(name, typeName));
 		}
 	}
 
@@ -124,7 +124,7 @@ export class HeaderParser {
 			const name = token.value;
 			this.#advance();
 			const typeName = this.#readType();
-			params.push({ name, typeName });
+			params.push(new ParamDef(name, typeName));
 		}
 
 		if (this.#current().type === TokenType.Bracket) this.#advance();
@@ -139,16 +139,16 @@ export class HeaderParser {
 		const next = this.#current();
 		if (next.type === TokenType.Operator && next.value === "<") {
 			this.#advance();
-			const args: string[] = [];
+			const typeArgs: string[] = [];
 			while (!this.#atEOF()) {
 				const token = this.#current();
 				if (token.type === TokenType.Operator && token.value === ">") break;
 				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
-				if (token.type === TokenType.Identifier) args.push(this.#readType());
+				if (token.type === TokenType.Identifier) typeArgs.push(this.#readType());
 				else this.#advance();
 			}
 			if (this.#current().type === TokenType.Operator) this.#advance();
-			return `${base.value}<${args.join(", ")}>`;
+			return `${base.value}<${typeArgs.join(", ")}>`;
 		}
 
 		const nullable = this.#current();
@@ -168,7 +168,7 @@ export class HeaderParser {
 	#current(): Token {
 		return this.#cursor < this.#tokens.length
 			? this.#tokens[this.#cursor]
-			: { type: TokenType.EOF, value: "", range: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 } };
+			: new Token(TokenType.EOF, "", new TokenRange(0, 0, 0, 0));
 	}
 
 	#advance(): Token {

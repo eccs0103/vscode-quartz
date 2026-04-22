@@ -1,7 +1,7 @@
 "use strict";
 
-import { Lexer, Token, TokenType } from "./lexer.js";
-import { ParamDef, SymbolTable, VarDef } from "./symbol-table.js";
+import { Lexer, Token, TokenRange, TokenType } from "./lexer.js";
+import { FuncDef, ParamDef, SymbolTable, VarDef } from "./symbol-table.js";
 
 //#region DocParser
 export class DocParser {
@@ -56,13 +56,7 @@ export class DocParser {
 		const bodyStart = this.#current().range.startLine;
 		const bodyEnd = this.#findMatchingBrace();
 
-		this.#table.addFunc({
-			name: nameToken.value,
-			params,
-			retType,
-			startLine: nameToken.range.startLine,
-			endLine: bodyEnd
-		});
+		this.#table.addFunc(new FuncDef(nameToken.value, params, retType, nameToken.range.startLine, bodyEnd));
 
 		const bodyOpen = this.#current();
 		if (!(bodyOpen.type === TokenType.Bracket && bodyOpen.value === "{")) return;
@@ -77,7 +71,7 @@ export class DocParser {
 	//#region Block & statements
 
 	#readBlock(initParams: ParamDef[], blockStart: number, blockEnd: number): void {
-		for (const parameter of initParams) this.#table.addVar({ name: parameter.name, typeName: parameter.typeName, startLine: blockStart, endLine: blockEnd });
+		for (const parameter of initParams) this.#table.addVar(new VarDef(parameter.name, parameter.typeName, blockStart, blockEnd));
 		while (!this.#atEOF()) {
 			const token = this.#current();
 			if (token.type === TokenType.Bracket && token.value === "}") break;
@@ -156,9 +150,9 @@ export class DocParser {
 		let name = "";
 		let typeName = "";
 
-		const ident = this.#current();
-		if (ident.type === TokenType.Identifier) {
-			name = ident.value;
+		const nameToken = this.#current();
+		if (nameToken.type === TokenType.Identifier) {
+			name = nameToken.value;
 			this.#advance();
 			typeName = this.#readType();
 			const inKeyword = this.#current();
@@ -183,7 +177,7 @@ export class DocParser {
 			? this.#findMatchingBrace()
 			: scopeEnd;
 
-		if (name) this.#table.addVar({ name, typeName, startLine: bodyToken.range.startLine, endLine: bodyEnd });
+		if (name) this.#table.addVar(new VarDef(name, typeName, bodyToken.range.startLine, bodyEnd));
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
@@ -202,7 +196,7 @@ export class DocParser {
 			this.#skipToSemicolon();
 		}
 
-		this.#table.addVar({ name: nameToken.value, typeName, startLine: nameToken.range.startLine, endLine: scopeEnd } as VarDef);
+		this.#table.addVar(new VarDef(nameToken.value, typeName, nameToken.range.startLine, scopeEnd));
 	}
 
 	#readParams(): ParamDef[] {
@@ -219,7 +213,7 @@ export class DocParser {
 			const name = token.value;
 			this.#advance();
 			const typeName = this.#readType();
-			params.push({ name, typeName });
+			params.push(new ParamDef(name, typeName));
 		}
 
 		const close = this.#current();
@@ -235,24 +229,34 @@ export class DocParser {
 		const next = this.#current();
 		if (next.type === TokenType.Operator && next.value === "<") {
 			this.#advance();
-			const args: string[] = [];
+			const typeArgs: string[] = [];
 			let depth = 1;
 			while (!this.#atEOF() && depth > 0) {
 				const token = this.#current();
-				if (token.type === TokenType.Operator && token.value === "<") { depth++; this.#advance(); continue; }
+				if (token.type === TokenType.Operator && token.value === "<") {
+					depth++;
+					this.#advance();
+					continue;
+				}
 				if (token.type === TokenType.Operator && token.value === ">") {
 					depth--;
 					if (depth === 0) break;
 					this.#advance();
 					continue;
 				}
-				if (token.type === TokenType.Identifier) { args.push(this.#readType()); continue; }
-				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
+				if (token.type === TokenType.Identifier) {
+					typeArgs.push(this.#readType());
+					continue;
+				}
+				if (token.type === TokenType.Separator && token.value === ",") {
+					this.#advance();
+					continue;
+				}
 				this.#advance();
 			}
 			const close = this.#current();
 			if (close.type === TokenType.Operator && close.value === ">") this.#advance();
-			return `${base.value}<${args.join(", ")}>`;
+			return `${base.value}<${typeArgs.join(", ")}>`;
 		}
 
 		const nullable = this.#current();
@@ -316,14 +320,14 @@ export class DocParser {
 	#current(): Token {
 		return this.#cursor < this.#tokens.length
 			? this.#tokens[this.#cursor]
-			: { type: TokenType.EOF, value: "", range: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 } };
+			: new Token(TokenType.EOF, "", new TokenRange(0, 0, 0, 0));
 	}
 
 	#peek(offset: number): Token {
 		const index = this.#cursor + offset;
 		return index < this.#tokens.length
 			? this.#tokens[index]
-			: { type: TokenType.EOF, value: "", range: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 } };
+			: new Token(TokenType.EOF, "", new TokenRange(0, 0, 0, 0));
 	}
 
 	#advance(): Token {
@@ -335,7 +339,6 @@ export class DocParser {
 	#atEOF(): boolean {
 		return this.#cursor >= this.#tokens.length || this.#tokens[this.#cursor].type === TokenType.EOF;
 	}
-
 	//#endregion
 }
 //#endregion

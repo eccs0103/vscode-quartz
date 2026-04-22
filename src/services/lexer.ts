@@ -13,17 +13,30 @@ export enum TokenType {
 	EOF = "EOF"
 }
 
-export interface Range {
+export class TokenRange {
 	startLine: number;
 	startColumn: number;
 	endLine: number;
 	endColumn: number;
+
+	constructor(startLine: number, startColumn: number, endLine: number, endColumn: number) {
+		this.startLine = startLine;
+		this.startColumn = startColumn;
+		this.endLine = endLine;
+		this.endColumn = endColumn;
+	}
 }
 
-export interface Token {
+export class Token {
 	type: TokenType;
 	value: string;
-	range: Range;
+	range: TokenRange;
+
+	constructor(type: TokenType, value: string, range: TokenRange) {
+		this.type = type;
+		this.value = value;
+		this.range = range;
+	}
 }
 //#endregion
 
@@ -34,7 +47,7 @@ export class Lexer {
 	#line: number = 0;
 	#column: number = 0;
 
-	#patterns: readonly { regex: RegExp; type: TokenType | null }[] = [
+	#patterns: readonly { regex: RegExp; type: TokenType | null; }[] = [
 		{ regex: /^\s+/, type: null },
 		{ regex: /^\/\/[^\n\r]*/, type: null },
 		{ regex: /^\/\*[\s\S]*?\*\//, type: null },
@@ -70,8 +83,8 @@ export class Lexer {
 				const startLine = this.#line;
 				const startColumn = this.#column;
 
-				for (const char of value) {
-					if (char === "\n") {
+				for (const character of value) {
+					if (character === "\n") {
 						this.#line++;
 						this.#column = 0;
 					} else {
@@ -83,11 +96,7 @@ export class Lexer {
 					const finalType = type === TokenType.Identifier && this.#keywords.has(value)
 						? TokenType.Keyword
 						: type;
-					tokens.push({
-						type: finalType,
-						value,
-						range: { startLine, startColumn, endLine: this.#line, endColumn: this.#column }
-					});
+					tokens.push(new Token(finalType, value, new TokenRange(startLine, startColumn, this.#line, this.#column)));
 				}
 
 				this.#cursor += value.length;
@@ -96,8 +105,8 @@ export class Lexer {
 			}
 
 			if (!matched) {
-				const char = this.#code[this.#cursor];
-				if (char === "\n") {
+				const character = this.#code[this.#cursor];
+				if (character === "\n") {
 					this.#line++;
 					this.#column = 0;
 				} else {
@@ -107,12 +116,7 @@ export class Lexer {
 			}
 		}
 
-		tokens.push({
-			type: TokenType.EOF,
-			value: "",
-			range: { startLine: this.#line, startColumn: this.#column, endLine: this.#line, endColumn: this.#column }
-		});
-
+		tokens.push(new Token(TokenType.EOF, "", new TokenRange(this.#line, this.#column, this.#line, this.#column)));
 		return tokens;
 	}
 }
