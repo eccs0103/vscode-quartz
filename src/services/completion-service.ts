@@ -32,6 +32,8 @@ export class CompletionService {
 				const typeName = this.findType(targetName, position.line, docTable);
 				if (typeName) return this.getMembersOf(typeName);
 			}
+			// Dot-context but type unresolvable — show nothing rather than all keywords
+			return [];
 		}
 
 		return this.getContextItems(position, docTable);
@@ -45,48 +47,64 @@ export class CompletionService {
 
 	// Resolve the declared type of a name in scope
 	private findType(name: string, line: number, docTable: SymbolTable): string | null {
-		const candidates = [
-			...this.#symService.runtimeTable.getVarsAt(line),
-			...docTable.getVarsAt(line)
-		];
-		const v = candidates.find(c => c.name === name);
-		if (v) return v.typeName;
-
-		// Function call site: the name is a function — return its return type
-		const rFns = this.#symService.runtimeTable.funcs.get(name);
-		const dFns = docTable.funcs.get(name);
-		const overloads = rFns ?? dFns;
-		if (overloads && overloads.length > 0) return overloads[0].retType;
-
-		return null;
+		return this.#symService.resolveType(name, line, docTable);
 	}
 
-	// Return CompletionItems for all accessible members of the given type
-	private getMembersOf(typeName: string): CompletionItem[] {
-		// Strip generics and nullable suffix to get base class name
-		const base = typeName.replace(/^Nullable<(.+)>$/, '$1').split('<')[0];
-		const cls = this.#symService.runtimeTable.classes.get(base);
-		if (!cls) return [];
+	// Returns CompletionItems for all accessible members of rawType, including inherited
+	// members from the parent chain and with generic type arguments substituted.
+	private getMembersOf(rawType: string): CompletionItem[] {
+		const { base, args } = SymbolService.parseGeneric(rawType);
+		const rootCls = this.#symService.runtimeTable.classes.get(base);
+		if (!rootCls) return [];
+
+		const subst = SymbolService.buildSubstitution(rootCls.typeParams, args);
+		const { methods, fields } = this.#symService.getAllMembers(base);
 
 		const items: CompletionItem[] = [];
-		for (const m of cls.methods) {
-			if (m.name.startsWith('[')) continue; // operator overloads not shown in dot-completion
-			const paramStr = m.params.map(p => `${p.name} ${p.typeName}`).join(', ');
+
+		// Group overloads by method name; operator methods are excluded from dot-completion
+		const methodOverloads = new Map<string, typeof methods>();
+		for (const m of methods) {
+			if (m.name.startsWith('[')) continue;
+			const overloads = methodOverloads.get(m.name) ?? [];
+			overloads.push(m);
+			methodOverloads.set(m.name, overloads);
+		}
+
+		for (const [mName, overloads] of methodOverloads) {
+			const first = overloads[0];
+			const paramStr = first.params
+				.map(p => `${p.name} ${SymbolService.substituteGenerics(p.typeName, subst)}`)
+				.join(', ');
+			const retType = SymbolService.substituteGenerics(first.retType, subst);
+			const allSigs = overloads
+				.map(o => {
+					const ps = o.params
+						.map(p => `${p.name} ${SymbolService.substituteGenerics(p.typeName, subst)}`)
+						.join(', ');
+					return `${mName}(${ps}) ${SymbolService.substituteGenerics(o.retType, subst)}`;
+				})
+				.join('\n');
 			items.push({
-				label: m.name,
+				label: mName,
 				kind: CompletionItemKind.Method,
-				detail: `(${paramStr}) ${m.retType}`,
-				documentation: `Method of ${base}`
+				detail: `(${paramStr}) ${retType}`,
+				documentation: allSigs
 			});
 		}
-		for (const f of cls.fields) {
+
+		const fieldSeen = new Set<string>();
+		for (const f of fields) {
+			if (fieldSeen.has(f.name)) continue;
+			fieldSeen.add(f.name);
 			items.push({
 				label: f.name,
 				kind: CompletionItemKind.Field,
-				detail: f.typeName,
+				detail: SymbolService.substituteGenerics(f.typeName, subst),
 				documentation: `Field of ${base}`
 			});
 		}
+
 		return items;
 	}
 
@@ -95,10 +113,10 @@ export class CompletionService {
 		const items: CompletionItem[] = [];
 		const added = new Set<string>();
 
-		const add = (label: string, kind: CompletionItemKind, detail: string) => {
+		const add = (label: string, kind: CompletionItemKind, detail: string, documentation?: string) => {
 			if (added.has(label)) return;
 			added.add(label);
-			items.push({ label, kind, detail });
+			items.push({ label, kind, detail, documentation });
 		};
 
 		// Keywords
@@ -110,19 +128,20 @@ export class CompletionService {
 			add(name, CompletionItemKind.Class, `class ${name}`);
 		}
 
-		// Global runtime functions (promoted from workspace)
+		// Global runtime functions (promoted from workspace) — show all overloads in docs
 		for (const [name, overloads] of this.#symService.runtimeTable.funcs) {
-			const detail = overloads
-				.map(o => `${name}(${o.params.map(p => p.typeName).join(', ')}) ${o.retType}`)
-				.join(' | ');
-			add(name, CompletionItemKind.Function, detail);
+			const sigLines = overloads.map(o =>
+				`${name}(${o.params.map(p => `${p.name} ${p.typeName}`).join(', ')}) ${o.retType}`
+			);
+			add(name, CompletionItemKind.Function, sigLines[0], sigLines.join('\n'));
 		}
 
-		// User-defined top-level functions
+		// User-defined top-level functions — show all overloads in docs
 		for (const [name, overloads] of docTable.funcs) {
-			const o = overloads[0];
-			const detail = `${name}(${o.params.map(p => `${p.name} ${p.typeName}`).join(', ')}) ${o.retType}`;
-			add(name, CompletionItemKind.Function, detail);
+			const sigLines = overloads.map(o =>
+				`${name}(${o.params.map(p => `${p.name} ${p.typeName}`).join(', ')}) ${o.retType}`
+			);
+			add(name, CompletionItemKind.Function, sigLines[0], sigLines.join('\n'));
 		}
 
 		// Variables visible at the cursor line (runtime globals + doc locals)

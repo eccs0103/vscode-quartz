@@ -17,11 +17,47 @@ export class HoverService {
 	getHover(document: TextDocument, position: Position): Hover | null {
 		const text = document.getText();
 		const offset = this.lineColToOffset(text, position.line, position.character);
-		const word = this.wordAt(text, offset);
-		if (!word) return null;
+		const found = this.wordAtWithStart(text, offset);
+		if (!found) return null;
 
+		const { word, start } = found;
 		const docTable = this.#symService.parse(text);
+
+		// Dot-access context: e.g. obj.method or obj.field
+		if (start > 0 && text[start - 1] === '.') {
+			const objFound = this.wordAtWithStart(text, start - 2);
+			if (!objFound) return null;
+			const objType = this.#symService.resolveType(objFound.word, position.line, docTable);
+			if (!objType) return null;
+			return this.makeHoverForMember(word, objType);
+		}
+
 		return this.makeHover(word, position.line, docTable);
+	}
+
+	private makeHoverForMember(memberName: string, typeName: string): Hover | null {
+		const { base, args } = SymbolService.parseGeneric(typeName);
+		const cls = this.#symService.runtimeTable.classes.get(base);
+		if (!cls) return null;
+
+		const subst = SymbolService.buildSubstitution(cls.typeParams, args);
+		const { methods, fields } = this.#symService.getAllMembers(base);
+
+		const matchMethods = methods.filter(m => m.name === memberName && !m.name.startsWith('['));
+		if (matchMethods.length > 0) {
+			const sigs = matchMethods.map(m => {
+				const paramStr = m.params
+					.map(p => `${p.name} ${SymbolService.substituteGenerics(p.typeName, subst)}`)
+					.join(', ');
+				return `${memberName}(${paramStr}) ${SymbolService.substituteGenerics(m.retType, subst)}`;
+			}).join('\n');
+			return this.md(`\`\`\`quartz\n${sigs}\n\`\`\``);
+		}
+
+		const field = fields.find(f => f.name === memberName);
+		if (field) return this.md(`\`\`\`quartz\n${memberName} ${SymbolService.substituteGenerics(field.typeName, subst)}\n\`\`\``);
+
+		return null;
 	}
 
 	private makeHover(word: string, line: number, docTable: SymbolTable): Hover | null {
@@ -35,12 +71,15 @@ export class HoverService {
 				const paramStr = m.params.map(p => `${p.name} ${p.typeName}`).join(', ');
 				memberLines.push(`  ${m.name}(${paramStr}) ${m.retType}`);
 			}
-			const header = cls.parent ? `${cls.name} from ${cls.parent}` : cls.name;
+			const typeParamStr = cls.typeParams.length > 0 ? `<${cls.typeParams.join(', ')}>` : '';
+			const header = cls.parent
+				? `${cls.name}${typeParamStr} from ${cls.parent}`
+				: `${cls.name}${typeParamStr}`;
 			const body = memberLines.length > 0 ? `\n${memberLines.join('\n')}\n` : '';
 			return this.md(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
-		// Function / method
+		// Global function (runtime + user-defined) — show all overloads
 		const rOverloads = this.#symService.runtimeTable.funcs.get(word) ?? [];
 		const dOverloads = docTable.funcs.get(word) ?? [];
 		const allOverloads = [...rOverloads, ...dOverloads];
@@ -66,11 +105,11 @@ export class HoverService {
 		return { contents: { kind: MarkupKind.Markdown, value } };
 	}
 
-	private wordAt(text: string, offset: number): string | null {
+	private wordAtWithStart(text: string, offset: number): { word: string; start: number } | null {
 		const ident = /[A-Za-z_]\w*/g;
 		let m: RegExpExecArray | null;
 		while ((m = ident.exec(text)) !== null) {
-			if (m.index <= offset && offset <= m.index + m[0].length) return m[0];
+			if (m.index <= offset && offset <= m.index + m[0].length) return { word: m[0], start: m.index };
 		}
 		return null;
 	}

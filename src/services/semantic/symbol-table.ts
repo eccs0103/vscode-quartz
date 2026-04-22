@@ -20,6 +20,7 @@ export interface FieldDef {
 
 export interface ClassDef {
 	name: string;
+	typeParams: string[];
 	parent?: string;
 	methods: MethodDef[];
 	fields: FieldDef[];

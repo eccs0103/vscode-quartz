@@ -35,12 +35,14 @@ export class HeaderParser {
 		const name = this.curr().value;
 		this.advance();
 
-		// Skip generic type parameter list, e.g. <Content> in Sequence<Content>
+		// Capture generic type parameter list, e.g. <Content> in Sequence<Content>
+		const typeParams: string[] = [];
 		if (this.curr().type === TokenType.Operator && this.curr().value === '<') {
 			this.advance();
 			while (!this.atEOF()) {
 				const t = this.curr();
 				if (t.type === TokenType.Operator && t.value === '>') break;
+				if (t.type === TokenType.Identifier) typeParams.push(t.value);
 				this.advance();
 			}
 			if (this.curr().type === TokenType.Operator) this.advance(); // consume '>'
@@ -72,7 +74,7 @@ export class HeaderParser {
 		}
 
 		if (this.curr().type === TokenType.Bracket) this.advance(); // consume '}'
-		return { name, parent, methods, fields };
+		return { name, typeParams, parent, methods, fields };
 	}
 
 	private readMember(methods: MethodDef[], fields: FieldDef[]): void {
