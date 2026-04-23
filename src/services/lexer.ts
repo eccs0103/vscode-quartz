@@ -77,7 +77,7 @@ export class Lexer {
 
 			for (const { regex, type } of this.#patterns) {
 				const match = regex.exec(remaining);
-				if (!match) continue;
+				if (match === null) continue;
 
 				const value = match[0];
 				const startLine = this.#line;

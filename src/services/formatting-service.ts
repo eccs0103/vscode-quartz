@@ -41,8 +41,8 @@ export class FormattingService {
 			}
 
 			if (line.includes("}") && line.includes("{")) {
-				const openCount = (line.match(/\{/g) || []).length;
-				const endCount = (line.match(/\}/g) || []).length;
+				const openCount = (line.match(/\{/g) ?? []).length;
+				const endCount = (line.match(/\}/g) ?? []).length;
 				if (endCount > openCount) level = Math.max(0, level - (endCount - openCount));
 			}
 		}
@@ -55,7 +55,7 @@ export class FormattingService {
 	}
 
 	#formatLine(line: string): string {
-		const indent = line.match(/^\s*/)?.[0] || "";
+		const indent = line.match(/^\s*/)?.[0] ?? "";
 		const content = line.trim();
 
 		let inString = false;

@@ -1,7 +1,7 @@
 "use strict";
 
-import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type WorkspaceFolder } from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange } from "vscode-languageserver/node";
+import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";
 import { SymbolService } from "../services/symbol-service.js";
 import { ValidationService } from "../services/validation-service.js";
 import { CompletionService } from "../services/completion-service.js";
@@ -9,7 +9,7 @@ import { HoverService } from "../services/hover-service.js";
 import { FormattingService } from "../services/formatting-service.js";
 import { FoldingService } from "../services/folding-service.js";
 
-//#region LanguageServer
+//#region Language server
 class LanguageServer {
 	#connection = createConnection(ProposedFeatures.all);
 	#documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -32,22 +32,24 @@ class LanguageServer {
 	}
 
 	start(): void {
-		this.#connection.onInitialize(params => this.#onInitialize(params));
-		this.#connection.onInitialized(() => this.#onInitialized());
-		this.#documents.onDidOpen(event => this.#sendDiagnostics(event.document));
-		this.#documents.onDidChangeContent(event => this.#sendDiagnostics(event.document));
-		this.#connection.onCompletion(params => this.#onCompletion(params));
-		this.#connection.onHover(params => this.#onHover(params));
-		this.#connection.onDocumentFormatting(params => this.#onDocumentFormatting(params));
-		this.#connection.onFoldingRanges(params => this.#onFoldingRanges(params));
-		this.#documents.listen(this.#connection);
-		this.#connection.listen();
+		const connection = this.#connection;
+		const documents = this.#documents;
+		connection.onInitialize(params => this.#onInitialize(params));
+		connection.onInitialized(_ => this.#onInitialized());
+		documents.onDidOpen(event => this.#sendDiagnostics(event.document));
+		documents.onDidChangeContent(event => this.#sendDiagnostics(event.document));
+		connection.onCompletion(params => this.#onCompletion(params));
+		connection.onHover(params => this.#onHover(params));
+		connection.onDocumentFormatting(params => this.#onDocumentFormatting(params));
+		connection.onFoldingRanges(params => this.#onFoldingRanges(params));
+		documents.listen(connection);
+		connection.listen();
 	}
 
 	#onInitialize(params: InitializeParams): InitializeResult {
 		this.#workspaceFolders = params.workspaceFolders ?? null;
-		this.#hasConfigCapability = !!(params.capabilities.workspace?.configuration);
-		const hasWorkspaceFolders = !!(params.capabilities.workspace?.workspaceFolders);
+		this.#hasConfigCapability = params.capabilities.workspace?.configuration !== undefined;
+		const hasWorkspaceFolders = params.capabilities.workspace?.workspaceFolders !== undefined;
 		const result: InitializeResult = {
 			capabilities: {
 				textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -62,35 +64,40 @@ class LanguageServer {
 	}
 
 	#onInitialized(): void {
-		if (this.#hasConfigCapability) this.#connection.client.register(DidChangeConfigurationNotification.type, undefined);
-		if (this.#workspaceFolders) this.#symbolService.initialize(this.#workspaceFolders);
+		const connection = this.#connection;
+		const workspaceFolders = this.#workspaceFolders;
+		if (this.#hasConfigCapability) connection.client.register(DidChangeConfigurationNotification.type, undefined);
+		if (workspaceFolders !== null) this.#symbolService.initialize(workspaceFolders);
 	}
 
 	#sendDiagnostics(document: TextDocument): void {
-		this.#connection.sendDiagnostics({ uri: document.uri, diagnostics: this.#validationService.validate(document) });
+		const connection = this.#connection;
+		const uri = document.uri;
+		const diagnostics = this.#validationService.validate(document);
+		connection.sendDiagnostics({ uri, diagnostics });
 	}
 
-	#onCompletion(params: CompletionParams) {
+	#onCompletion(params: CompletionParams): CompletionItem[] {
 		const document = this.#documents.get(params.textDocument.uri);
-		if (!document) return [];
+		if (document === undefined) return [];
 		return this.#completionService.getCompletions(document, params.position);
 	}
 
-	#onHover(params: HoverParams) {
+	#onHover(params: HoverParams): Hover | null {
 		const document = this.#documents.get(params.textDocument.uri);
-		if (!document) return null;
+		if (document === undefined) return null;
 		return this.#hoverService.getHover(document, params.position);
 	}
 
-	#onDocumentFormatting(params: DocumentFormattingParams) {
+	#onDocumentFormatting(params: DocumentFormattingParams): TextEdit[] {
 		const document = this.#documents.get(params.textDocument.uri);
-		if (!document) return [];
+		if (document === undefined) return [];
 		return this.#formattingService.getEdits(document);
 	}
 
-	#onFoldingRanges(params: FoldingRangeParams) {
+	#onFoldingRanges(params: FoldingRangeParams): FoldingRange[] {
 		const document = this.#documents.get(params.textDocument.uri);
-		if (!document) return [];
+		if (document === undefined) return [];
 		return this.#foldingService.getRanges(document);
 	}
 }

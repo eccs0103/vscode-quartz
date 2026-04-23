@@ -100,7 +100,7 @@ export class MemberSet {
 }
 //#endregion
 
-//#region SymbolTable
+//#region Symbol table
 export class SymbolTable {
 	classes: Map<string, ClassDef> = new Map();
 	funcs: Map<string, FuncDef[]> = new Map();

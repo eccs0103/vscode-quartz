@@ -4,7 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node";
 
-//#region ExtensionController
+//#region Extension controller
 class ExtensionController {
 	#client: LanguageClient | undefined;
 

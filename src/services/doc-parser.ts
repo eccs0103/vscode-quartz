@@ -3,7 +3,7 @@
 import { Lexer, Token, TokenRange, TokenType } from "./lexer.js";
 import { FuncDef, ParamDef, SymbolTable, VarDef } from "./symbol-table.js";
 
-//#region DocParser
+//#region Doc parser
 export class DocParser {
 	#tokens: Token[] = [];
 	#cursor = 0;
@@ -17,8 +17,7 @@ export class DocParser {
 		return this.#table;
 	}
 
-	//#region Top-level
-
+	//#region Top level
 	#readProgram(): void {
 		while (!this.#atEOF()) {
 			if (this.#isFuncDecl()) {
@@ -43,11 +42,8 @@ export class DocParser {
 		const next = this.#peek(1);
 		return current.type === TokenType.Identifier && next.type === TokenType.Identifier;
 	}
-
 	//#endregion
-
 	//#region Function declaration
-
 	#readFuncDecl(): void {
 		const nameToken = this.#advance();
 		const params = this.#readParams();
@@ -65,11 +61,8 @@ export class DocParser {
 		const closing = this.#current();
 		if (closing.type === TokenType.Bracket && closing.value === "}") this.#advance();
 	}
-
 	//#endregion
-
 	//#region Block & statements
-
 	#readBlock(initParams: ParamDef[], blockStart: number, blockEnd: number): void {
 		for (const parameter of initParams) this.#table.addVar(new VarDef(parameter.name, parameter.typeName, blockStart, blockEnd));
 		while (!this.#atEOF()) {
@@ -116,11 +109,8 @@ export class DocParser {
 
 		this.#skipToSemicolon();
 	}
-
 	//#endregion
-
 	//#region Control flow
-
 	#readIf(scopeStart: number, scopeEnd: number): void {
 		this.#advance();
 		this.#skipBalanced("(", ")");
@@ -181,11 +171,8 @@ export class DocParser {
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
-
 	//#endregion
-
 	//#region Declarations
-
 	#readVarDecl(scopeStart: number, scopeEnd: number): void {
 		const nameToken = this.#advance();
 		const typeName = this.#readType();
@@ -252,11 +239,8 @@ export class DocParser {
 
 		return base.value;
 	}
-
 	//#endregion
-
 	//#region Utilities
-
 	#findMatchingBrace(): number {
 		let depth = 0;
 		for (let index = this.#cursor; index < this.#tokens.length; index++) {
@@ -324,7 +308,6 @@ export class DocParser {
 	#atEOF(): boolean {
 		return this.#cursor >= this.#tokens.length || this.#tokens[this.#cursor].type === TokenType.EOF;
 	}
-
 	//#endregion
 }
 //#endregion

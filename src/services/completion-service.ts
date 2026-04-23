@@ -6,7 +6,7 @@ import { SymbolService } from "./symbol-service.js";
 import { FuncDef, SymbolTable } from "./symbol-table.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 
-//#region CompletionService
+//#region Completion service
 export class CompletionService {
 	#symbolService: SymbolService;
 
@@ -15,17 +15,18 @@ export class CompletionService {
 	}
 
 	getCompletions(document: TextDocument, position: Position): CompletionItem[] {
+		const symbolService = this.#symbolService;
 		const text = document.getText();
 		const offset = document.offsetAt(position);
 		const before = text.slice(0, offset);
 
-		const docTable = this.#symbolService.parse(text);
+		const docTable = symbolService.parse(text);
 
 		const dotMatch = /\.([A-Za-z_]\w*)?$/.exec(before);
-		if (dotMatch) {
+		if (dotMatch !== null) {
 			const dotIndex = before.length - dotMatch[0].length;
-			const receiverType = this.#symbolService.exprType(before, dotIndex, position.line, docTable);
-			if (receiverType) return this.#getMembersOf(receiverType);
+			const receiverType = symbolService.exprType(before, dotIndex, position.line, docTable);
+			if (receiverType !== null) return this.#getMembersOf(receiverType);
 			return [];
 		}
 
@@ -33,12 +34,13 @@ export class CompletionService {
 	}
 
 	#getMembersOf(rawType: string): CompletionItem[] {
+		const symbolService = this.#symbolService;
 		const { base, typeArgs } = SymbolService.toGeneric(rawType);
-		const rootType = this.#symbolService.getClass(base);
-		if (!rootType) return [];
+		const rootType = symbolService.getClass(base);
+		if (rootType === undefined) return [];
 
 		const substitution = SymbolService.toSubstitution(rootType.typeParams, typeArgs);
-		const { methods, fields } = this.#symbolService.getAllMembers(base);
+		const { methods, fields } = symbolService.getAllMembers(base);
 
 		const items: CompletionItem[] = [];
 
@@ -63,20 +65,21 @@ export class CompletionService {
 	}
 
 	#getContextItems(position: Position, docTable: SymbolTable): CompletionItem[] {
+		const symbolService = this.#symbolService;
 		const items: CompletionItem[] = [];
 		const added = new Set<string>();
 
 		for (const keyword of LanguageKeywords.values()) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
 
-		for (const name of this.#symbolService.typeNames()) {
+		for (const name of symbolService.typeNames()) {
 			if (name === "workspace") continue;
 			this.#addItem(items, added, name, CompletionItemKind.Class, `class ${name}`);
 		}
 
-		this.#addFuncItems(items, added, this.#symbolService.libFuncs());
+		this.#addFuncItems(items, added, symbolService.libFuncs());
 		this.#addFuncItems(items, added, docTable.funcs);
 
-		for (const { name, typeName } of this.#symbolService.libVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName } of symbolService.libVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 		for (const { name, typeName } of docTable.getVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 
 		return items;

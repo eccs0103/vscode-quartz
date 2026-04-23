@@ -6,7 +6,7 @@ import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
 import { HoverData } from "../models/hover-data.js";
 
-//#region WordMatch
+//#region Word match
 class WordMatch {
 	word: string;
 	start: number;
@@ -18,7 +18,7 @@ class WordMatch {
 }
 //#endregion
 
-//#region HoverService
+//#region Hover service
 export class HoverService {
 	#symbolService: SymbolService;
 
@@ -27,17 +27,18 @@ export class HoverService {
 	}
 
 	getHover(document: TextDocument, position: Position): Hover | null {
+		const symbolService = this.#symbolService;
 		const text = document.getText();
 		const offset = document.offsetAt(position);
 		const found = this.#wordAtWithStart(text, offset);
-		if (!found) return null;
+		if (found === null) return null;
 
 		const { word, start } = found;
-		const docTable = this.#symbolService.parse(text);
+		const docTable = symbolService.parse(text);
 
 		if (start > 0 && text[start - 1] === ".") {
-			const receiverType = this.#symbolService.exprType(text, start - 1, position.line, docTable);
-			if (!receiverType) return null;
+			const receiverType = symbolService.exprType(text, start - 1, position.line, docTable);
+			if (receiverType === null) return null;
 			return this.#makeHoverForMember(word, receiverType);
 		}
 
@@ -45,12 +46,13 @@ export class HoverService {
 	}
 
 	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
+		const symbolService = this.#symbolService;
 		const { base, typeArgs } = SymbolService.toGeneric(typeName);
-		const typeDef = this.#symbolService.getClass(base);
-		if (!typeDef) return null;
+		const typeDef = symbolService.getClass(base);
+		if (typeDef === undefined) return null;
 
 		const substitution = SymbolService.toSubstitution(typeDef.typeParams, typeArgs);
-		const { methods, fields } = this.#symbolService.getAllMembers(base);
+		const { methods, fields } = symbolService.getAllMembers(base);
 
 		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
 		if (matching.length > 0) {
@@ -59,37 +61,37 @@ export class HoverService {
 		}
 
 		const field = fields.find(entry => entry.name === memberName);
-		if (field) return this.#md(`\`\`\`quartz\n${memberName} ${SymbolService.mapWith(field.typeName, substitution)}\n\`\`\``);
-
-		return null;
+		if (field === undefined) return null;
+		return this.#md(`\`\`\`quartz\n${memberName} ${SymbolService.mapWith(field.typeName, substitution)}\n\`\`\``);
 	}
 
 	#makeHover(word: string, line: number, docTable: SymbolTable): Hover | null {
-		const typeDef = this.#symbolService.getClass(word) ?? docTable.classes.get(word);
-		if (typeDef) {
+		const symbolService = this.#symbolService;
+		const typeDef = symbolService.getClass(word) ?? docTable.classes.get(word);
+		if (typeDef !== undefined) {
 			const memberLines: string[] = [];
-			for (const field of typeDef.fields) memberLines.push(`  ${field.name} ${field.typeName}`);
-			for (const method of typeDef.methods) {
-				if (method.name.startsWith("[")) continue;
-				memberLines.push(`  ${method.name}(${method.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${method.retType}`);
+			for (const { name, typeName } of typeDef.fields) memberLines.push(`  ${name} ${typeName}`);
+			for (const { name, params, retType } of typeDef.methods) {
+				if (name.startsWith("[")) continue;
+				memberLines.push(`  ${name}(${params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${retType}`);
 			}
 			const typeParamStr = typeDef.typeParams.length > 0 ? `<${typeDef.typeParams.join(", ")}>` : "";
-			const header = typeDef.parent ? `${typeDef.name}${typeParamStr} from ${typeDef.parent}` : `${typeDef.name}${typeParamStr}`;
+			const header = typeDef.parent !== undefined ? `${typeDef.name}${typeParamStr} from ${typeDef.parent}` : `${typeDef.name}${typeParamStr}`;
 			const body = memberLines.length > 0 ? `\n${memberLines.join("\n")}\n` : "";
 			return this.#md(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
-		const allOverloads = [...(this.#symbolService.libFuncs().get(word) ?? []), ...(docTable.funcs.get(word) ?? [])];
+		const allOverloads = [...(symbolService.libFuncs().get(word) ?? []), ...(docTable.funcs.get(word) ?? [])];
 		if (allOverloads.length > 0) {
 			const signatures = allOverloads.map(overload => `${overload.name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`).join("\n");
 			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
-		const variable = [...this.#symbolService.libVarsAt(line), ...docTable.getVarsAt(line)].find(entry => entry.name === word);
-		if (variable) return this.#md(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
+		const variable = [...symbolService.libVarsAt(line), ...docTable.getVarsAt(line)].find(entry => entry.name === word);
+		if (variable !== undefined) return this.#md(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
 
 		const documentation = HoverData.get(word);
-		if (documentation) return this.#md(documentation);
+		if (documentation !== undefined) return this.#md(documentation);
 
 		return null;
 	}

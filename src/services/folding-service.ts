@@ -3,7 +3,7 @@
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
 
-//#region FoldingService
+//#region Folding service
 export class FoldingService {
 	getRanges(document: TextDocument): FoldingRange[] {
 		const ranges: FoldingRange[] = [];

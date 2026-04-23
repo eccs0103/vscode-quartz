@@ -3,7 +3,7 @@
 import { Lexer, Token, TokenRange, TokenType } from "./lexer.js";
 import { ClassDef, FieldDef, MethodDef, ParamDef, SymbolTable } from "./symbol-table.js";
 
-//#region HeaderParser
+//#region Header parser
 export class HeaderParser {
 	#tokens: Token[] = [];
 	#cursor = 0;
