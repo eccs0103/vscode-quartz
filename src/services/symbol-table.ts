@@ -1,35 +1,35 @@
 "use strict";
 
-import { ClassDef, FuncDef, VarDef } from "../models/symbol-defs.js";
+import { TypeDefinition, FunctionDefinition, VariableDefinition } from "../models/symbol-defs.js";
 
 //#region Symbol table
 export class SymbolTable {
-	classes: Map<string, ClassDef> = new Map();
-	funcs: Map<string, FuncDef[]> = new Map();
-	vars: VarDef[] = [];
+	classes: Map<string, TypeDefinition> = new Map();
+	functions: Map<string, FunctionDefinition[]> = new Map();
+	variables: VariableDefinition[] = [];
 
-	addClass(typeDef: ClassDef): void {
-		this.classes.set(typeDef.name, typeDef);
+	addClass(typeDefinition: TypeDefinition): void {
+		this.classes.set(typeDefinition.name, typeDefinition);
 	}
 
-	addFunc(funcDef: FuncDef): void {
-		const overloads = this.funcs.get(funcDef.name) ?? [];
-		overloads.push(funcDef);
-		this.funcs.set(funcDef.name, overloads);
+	addFunction(funcDefinition: FunctionDefinition): void {
+		const overloads = this.functions.get(funcDefinition.name) ?? [];
+		overloads.push(funcDefinition);
+		this.functions.set(funcDefinition.name, overloads);
 	}
 
-	addVar(varDef: VarDef): void {
-		this.vars.push(varDef);
+	addVariable(varDefinition: VariableDefinition): void {
+		this.variables.push(varDefinition);
 	}
 
-	getVarsAt(line: number): VarDef[] {
-		return this.vars.filter(variable => line >= variable.startLine && line <= variable.endLine);
+	getVariablesAt(line: number): VariableDefinition[] {
+		return this.variables.filter(variable => line >= variable.startLine && line <= variable.endLine);
 	}
 
 	merge(other: SymbolTable): void {
-		for (const typeDef of other.classes.values()) this.addClass(typeDef);
-		for (const overloads of other.funcs.values()) overloads.forEach(this.addFunc.bind(this));
-		other.vars.forEach(this.addVar.bind(this));
+		for (const typeDefinition of other.classes.values()) this.addClass(typeDefinition);
+		for (const overloads of other.functions.values()) overloads.forEach(this.addFunction.bind(this));
+		other.variables.forEach(this.addVariable.bind(this));
 	}
 }
 //#endregion

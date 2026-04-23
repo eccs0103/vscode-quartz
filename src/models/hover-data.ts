@@ -1,8 +1,8 @@
 "use strict";
 
-//#region HoverData
+//#region Hover data
 export class HoverData {
-	static #content: ReadonlyMap<string, string> = new Map([
+	static #content: Map<string, string> = new Map([
 		["if", "```quartz\nif (condition) { ... }\n```\n---\nConditional statement."],
 		["else", "```quartz\nelse { ... }\n```\n---\nAlternative branch for an `if` statement."],
 		["while", "```quartz\nwhile (condition) { ... }\n```\n---\nLoop statement that executes while the condition is true."],

@@ -3,7 +3,7 @@
 import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
-import { FuncDef } from "../models/symbol-defs.js";
+import { FunctionDefinition } from "../models/symbol-defs.js";
 import { SymbolTable } from "./symbol-table.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 
@@ -26,7 +26,7 @@ export class CompletionService {
 		const dotMatch = /\.([A-Za-z_]\w*)?$/.exec(before);
 		if (dotMatch !== null) {
 			const dotIndex = before.length - dotMatch[0].length;
-			const receiverType = symbolService.exprType(before, dotIndex, position.line, docTable);
+			const receiverType = symbolService.typeAt(before, dotIndex, position.line, docTable);
 			if (receiverType !== null) return this.#getMembersOf(receiverType);
 			return [];
 		}
@@ -37,7 +37,7 @@ export class CompletionService {
 	#getMembersOf(rawType: string): CompletionItem[] {
 		const symbolService = this.#symbolService;
 		const { base, typeArgs } = SymbolService.toGeneric(rawType);
-		const rootType = symbolService.getClass(base);
+		const rootType = symbolService.getType(base);
 		if (rootType === undefined) return [];
 
 		const substitution = SymbolService.toSubstitution(rootType.typeParams, typeArgs);
@@ -67,26 +67,27 @@ export class CompletionService {
 
 	#getContextItems(position: Position, docTable: SymbolTable): CompletionItem[] {
 		const symbolService = this.#symbolService;
+		const runtime = symbolService.runtimeTable();
 		const items: CompletionItem[] = [];
 		const added = new Set<string>();
 
 		for (const keyword of LanguageKeywords.values()) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
 
-		for (const name of symbolService.typeNames()) {
+		for (const name of runtime.classes.keys()) {
 			if (name === "workspace") continue;
 			this.#addItem(items, added, name, CompletionItemKind.Class, `class ${name}`);
 		}
 
-		this.#addFuncItems(items, added, symbolService.libFuncs());
-		this.#addFuncItems(items, added, docTable.funcs);
+		this.#addFuncItems(items, added, runtime.functions);
+		this.#addFuncItems(items, added, docTable.functions);
 
-		for (const { name, typeName } of symbolService.libVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
-		for (const { name, typeName } of docTable.getVarsAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName } of runtime.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName } of docTable.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 
 		return items;
 	}
 
-	#addFuncItems(items: CompletionItem[], added: Set<string>, funcs: ReadonlyMap<string, FuncDef[]>): void {
+	#addFuncItems(items: CompletionItem[], added: Set<string>, funcs: Map<string, FunctionDefinition[]>): void {
 		for (const [name, overloads] of funcs) {
 			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
 			this.#addItem(items, added, name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));

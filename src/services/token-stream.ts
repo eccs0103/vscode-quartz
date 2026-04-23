@@ -2,47 +2,47 @@
 
 import { Lexer } from "./lexer.js";
 import { Token, TokenRange, TokenType } from "../models/token.js";
-import { ParamDef } from "../models/symbol-defs.js";
+import { ParameterDefinition } from "../models/symbol-defs.js";
 
-//#region Base parser
-export abstract class BaseParser {
+//#region Token stream
+export class TokenStream {
 	#tokens: Token[] = [];
 	#cursor: number = 0;
 
-	protected initTokens(code: string): void {
+	load(code: string): void {
 		this.#tokens = new Lexer(code).tokenize();
 		this.#cursor = 0;
 	}
 
-	protected current(): Token {
+	current(): Token {
 		return this.#cursor < this.#tokens.length
 			? this.#tokens[this.#cursor]
 			: new Token(TokenType.EOF, "", new TokenRange(0, 0, 0, 0));
 	}
 
-	protected peek(offset: number): Token {
+	peek(offset: number): Token {
 		const index = this.#cursor + offset;
 		return index < this.#tokens.length
 			? this.#tokens[index]
 			: new Token(TokenType.EOF, "", new TokenRange(0, 0, 0, 0));
 	}
 
-	protected advance(): Token {
+	advance(): Token {
 		const token = this.current();
 		if (this.#cursor < this.#tokens.length) this.#cursor++;
 		return token;
 	}
 
-	protected atEOF(): boolean {
+	atEOF(): boolean {
 		return this.#cursor >= this.#tokens.length || this.#tokens[this.#cursor].type === TokenType.EOF;
 	}
 
-	protected skipSemicolon(): void {
+	skipSemicolon(): void {
 		const token = this.current();
 		if (token.type === TokenType.Separator && token.value === ";") this.advance();
 	}
 
-	protected readType(): string {
+	readType(): string {
 		const base = this.current();
 		if (base.type !== TokenType.Identifier) return "";
 		this.advance();
@@ -74,11 +74,11 @@ export abstract class BaseParser {
 		return base.value;
 	}
 
-	protected readParams(): ParamDef[] {
+	readParams(): ParameterDefinition[] {
 		const open = this.current();
 		if (!(open.type === TokenType.Bracket && open.value === "(")) return [];
 		this.advance();
-		const params: ParamDef[] = [];
+		const params: ParameterDefinition[] = [];
 		while (!this.atEOF()) {
 			const token = this.current();
 			if (token.type === TokenType.Bracket && token.value === ")") break;
@@ -87,14 +87,14 @@ export abstract class BaseParser {
 			const name = token.value;
 			this.advance();
 			const typeName = this.readType();
-			params.push(new ParamDef(name, typeName));
+			params.push(new ParameterDefinition(name, typeName));
 		}
 		const close = this.current();
 		if (close.type === TokenType.Bracket && close.value === ")") this.advance();
 		return params;
 	}
 
-	protected findMatchingBrace(): number {
+	findMatchingBrace(): number {
 		let depth = 0;
 		for (let index = this.#cursor; index < this.#tokens.length; index++) {
 			const token = this.#tokens[index];

@@ -1,110 +1,115 @@
 "use strict";
 
 import { TokenType } from "../models/token.js";
-import { ClassDef, FieldDef, MethodDef, ParamDef } from "../models/symbol-defs.js";
+import { TypeDefinition, FieldDefinition, MethodDefinition, ParameterDefinition } from "../models/symbol-defs.js";
 import { SymbolTable } from "./symbol-table.js";
-import { BaseParser } from "./base-parser.js";
+import { TokenStream } from "./token-stream.js";
 
 //#region Header parser
-export class HeaderParser extends BaseParser {
+export class HeaderParser {
+	#stream: TokenStream = new TokenStream();
+
 	parse(code: string): SymbolTable {
-		this.initTokens(code);
+		const stream = this.#stream;
+		stream.load(code);
 		const table = new SymbolTable();
 
-		while (!this.atEOF()) {
-			if (this.current().type !== TokenType.Identifier) {
-				this.advance();
+		while (!stream.atEOF()) {
+			if (stream.current().type !== TokenType.Identifier) {
+				stream.advance();
 				continue;
 			}
 			const entry = this.#readClass();
-			if (entry) table.addClass(entry);
+			if (entry !== null) table.addClass(entry);
 		}
 
 		return table;
 	}
 
-	#readClass(): ClassDef | null {
-		const name = this.current().value;
-		this.advance();
+	#readClass(): TypeDefinition | null {
+		const stream = this.#stream;
+		const name = stream.current().value;
+		stream.advance();
 
 		const typeParams: string[] = [];
-		if (this.current().type === TokenType.Operator && this.current().value === "<") {
-			this.advance();
-			while (!this.atEOF()) {
-				const token = this.current();
+		if (stream.current().type === TokenType.Operator && stream.current().value === "<") {
+			stream.advance();
+			while (!stream.atEOF()) {
+				const token = stream.current();
 				if (token.type === TokenType.Operator && token.value === ">") break;
 				if (token.type === TokenType.Identifier) typeParams.push(token.value);
-				this.advance();
+				stream.advance();
 			}
-			if (this.current().type === TokenType.Operator) this.advance();
+			if (stream.current().type === TokenType.Operator) stream.advance();
 		}
 
 		let parent: string | undefined;
-		if (this.current().type === TokenType.Identifier && this.current().value === "from") {
-			this.advance();
-			parent = this.readType();
+		if (stream.current().type === TokenType.Identifier && stream.current().value === "from") {
+			stream.advance();
+			parent = stream.readType();
 		}
 
-		while (!this.atEOF()) {
-			const token = this.current();
+		while (!stream.atEOF()) {
+			const token = stream.current();
 			if (token.type === TokenType.Bracket && token.value === "{") break;
-			this.advance();
+			stream.advance();
 		}
-		if (this.atEOF()) return null;
-		this.advance();
+		if (stream.atEOF()) return null;
+		stream.advance();
 
-		const methods: MethodDef[] = [];
-		const fields: FieldDef[] = [];
+		const methods: MethodDefinition[] = [];
+		const fields: FieldDefinition[] = [];
 
-		while (!this.atEOF()) {
-			const token = this.current();
+		while (!stream.atEOF()) {
+			const token = stream.current();
 			if (token.type === TokenType.Bracket && token.value === "}") break;
 			this.#readMember(methods, fields);
 		}
 
-		if (this.current().type === TokenType.Bracket) this.advance();
-		return new ClassDef(name, typeParams, parent, methods, fields);
+		if (stream.current().type === TokenType.Bracket) stream.advance();
+		return new TypeDefinition(name, typeParams, parent, methods, fields);
 	}
 
-	#readMember(methods: MethodDef[], fields: FieldDef[]): void {
-		const first = this.current();
+	#readMember(methods: MethodDefinition[], fields: FieldDefinition[]): void {
+		const stream = this.#stream;
+		const first = stream.current();
 
 		if (first.type === TokenType.Bracket && first.value === "[") {
-			this.advance();
+			stream.advance();
 			let name = "[";
-			while (!this.atEOF()) {
-				const token = this.current();
+			while (!stream.atEOF()) {
+				const token = stream.current();
 				if (token.type === TokenType.Bracket && token.value === "]") break;
 				name += token.value;
-				this.advance();
+				stream.advance();
 			}
 			name += "]";
-			if (this.current().type === TokenType.Bracket) this.advance();
-			const params = this.readParams();
-			const retType = this.readType();
-			this.skipSemicolon();
-			methods.push(new MethodDef(name, params, retType));
+			if (stream.current().type === TokenType.Bracket) stream.advance();
+			const params = stream.readParams();
+			const retType = stream.readType();
+			stream.skipSemicolon();
+			methods.push(new MethodDefinition(name, params, retType));
 			return;
 		}
 
 		if (first.type !== TokenType.Identifier) {
-			this.advance();
+			stream.advance();
 			return;
 		}
 
 		const name = first.value;
-		this.advance();
+		stream.advance();
 
-		const next = this.current();
+		const next = stream.current();
 		if (next.type === TokenType.Bracket && next.value === "(") {
-			const params = this.readParams();
-			const retType = this.readType();
-			this.skipSemicolon();
-			methods.push(new MethodDef(name, params, retType));
+			const params = stream.readParams();
+			const retType = stream.readType();
+			stream.skipSemicolon();
+			methods.push(new MethodDefinition(name, params, retType));
 		} else {
-			const typeName = this.readType();
-			this.skipSemicolon();
-			fields.push(new FieldDef(name, typeName));
+			const typeName = stream.readType();
+			stream.skipSemicolon();
+			fields.push(new FieldDefinition(name, typeName));
 		}
 	}
 }

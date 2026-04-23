@@ -4,12 +4,7 @@ import { Token, TokenRange, TokenType } from "../models/token.js";
 
 //#region Lexer
 export class Lexer {
-	#code: string;
-	#cursor: number = 0;
-	#line: number = 0;
-	#column: number = 0;
-
-	#patterns: readonly { regex: RegExp; type: TokenType | null; }[] = [
+	static #patterns: { regex: RegExp; type: TokenType | null; }[] = [
 		{ regex: /^\s+/, type: null },
 		{ regex: /^\/\/[^\n\r]*/, type: null },
 		{ regex: /^\/\*[\s\S]*?\*\//, type: null },
@@ -22,9 +17,14 @@ export class Lexer {
 		{ regex: /^[;,]/, type: TokenType.Separator }
 	];
 
-	#keywords: ReadonlySet<string> = new Set([
+	static #keywords: Set<string> = new Set([
 		"true", "false", "null", "if", "else", "while", "for", "in", "continue", "break", "return"
 	]);
+
+	#code: string;
+	#cursor: number = 0;
+	#line: number = 0;
+	#column: number = 0;
 
 	constructor(code: string) {
 		this.#code = code;
@@ -37,7 +37,7 @@ export class Lexer {
 			const remaining = this.#code.slice(this.#cursor);
 			let matched = false;
 
-			for (const { regex, type } of this.#patterns) {
+			for (const { regex, type } of Lexer.#patterns) {
 				const match = regex.exec(remaining);
 				if (match === null) continue;
 
@@ -55,7 +55,7 @@ export class Lexer {
 				}
 
 				if (type !== null) {
-					const finalType = type === TokenType.Identifier && this.#keywords.has(value)
+					const finalType = type === TokenType.Identifier && Lexer.#keywords.has(value)
 						? TokenType.Keyword
 						: type;
 					tokens.push(new Token(finalType, value, new TokenRange(startLine, startColumn, this.#line, this.#column)));

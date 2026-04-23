@@ -1,5 +1,6 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { TextEdit, Range, Position } from "vscode-languageserver/node";
 
@@ -21,12 +22,12 @@ export class FormattingService {
 		const tab = "\t";
 
 		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-			let line = lines[lineIndex].trim();
-
-			if (line.length === 0) {
+			const raw = lines[lineIndex];
+			if (String.isWhitespace(raw)) {
 				formatted.push("");
 				continue;
 			}
+			let line = raw.trim();
 
 			const isComment = line.startsWith("//") || line.startsWith("/*") || line.startsWith("*");
 

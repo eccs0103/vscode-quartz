@@ -1,16 +1,18 @@
 "use strict";
 
 import { TokenType } from "../models/token.js";
-import { FuncDef, ParamDef, VarDef } from "../models/symbol-defs.js";
+import { FunctionDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-defs.js";
 import { SymbolTable } from "./symbol-table.js";
-import { BaseParser } from "./base-parser.js";
+import { TokenStream } from "./token-stream.js";
 
-//#region Doc parser
-export class DocParser extends BaseParser {
+//#region Document parser
+export class DocumentParser {
+	#stream: TokenStream = new TokenStream();
 	#table: SymbolTable = new SymbolTable();
 
 	parse(code: string): SymbolTable {
-		this.initTokens(code);
+		const stream = this.#stream;
+		stream.load(code);
 		this.#table = new SymbolTable();
 		this.#readProgram();
 		return this.#table;
@@ -18,67 +20,73 @@ export class DocParser extends BaseParser {
 
 	//#region Top level
 	#readProgram(): void {
-		while (!this.atEOF()) {
+		const stream = this.#stream;
+		while (!stream.atEOF()) {
 			if (this.#isFuncDecl()) {
 				this.#readFuncDecl();
 			} else if (this.#isVarDecl()) {
 				this.#readVarDecl(0, Number.MAX_SAFE_INTEGER);
-				this.skipSemicolon();
+				stream.skipSemicolon();
 			} else {
-				this.advance();
+				stream.advance();
 			}
 		}
 	}
 
 	#isFuncDecl(): boolean {
-		const current = this.current();
-		const next = this.peek(1);
+		const stream = this.#stream;
+		const current = stream.current();
+		const next = stream.peek(1);
 		return current.type === TokenType.Identifier && next.type === TokenType.Bracket && next.value === "(";
 	}
 
 	#isVarDecl(): boolean {
-		const current = this.current();
-		const next = this.peek(1);
+		const stream = this.#stream;
+		const current = stream.current();
+		const next = stream.peek(1);
 		return current.type === TokenType.Identifier && next.type === TokenType.Identifier;
 	}
 	//#endregion
 	//#region Function declaration
 	#readFuncDecl(): void {
-		const nameToken = this.advance();
-		const params = this.readParams();
-		const retType = this.readType();
+		const stream = this.#stream;
+		const nameToken = stream.advance();
+		const params = stream.readParams();
+		const retType = stream.readType();
 
-		const bodyStart = this.current().range.startLine;
-		const bodyEnd = this.findMatchingBrace();
+		const bodyStart = stream.current().range.startLine;
+		const bodyEnd = stream.findMatchingBrace();
 
-		this.#table.addFunc(new FuncDef(nameToken.value, params, retType, nameToken.range.startLine, bodyEnd));
+		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, nameToken.range.startLine, bodyEnd));
 
-		const bodyOpen = this.current();
+		const bodyOpen = stream.current();
 		if (!(bodyOpen.type === TokenType.Bracket && bodyOpen.value === "{")) return;
-		this.advance();
+		stream.advance();
 		this.#readBlock(params, bodyStart, bodyEnd);
-		const closing = this.current();
-		if (closing.type === TokenType.Bracket && closing.value === "}") this.advance();
+		const closing = stream.current();
+		if (closing.type === TokenType.Bracket && closing.value === "}") stream.advance();
 	}
 	//#endregion
-	//#region Block & statements
-	#readBlock(initParams: ParamDef[], blockStart: number, blockEnd: number): void {
-		for (const parameter of initParams) this.#table.addVar(new VarDef(parameter.name, parameter.typeName, blockStart, blockEnd));
-		while (!this.atEOF()) {
-			const token = this.current();
+	//#region Block and statements
+	#readBlock(initParams: ParameterDefinition[], blockStart: number, blockEnd: number): void {
+		const stream = this.#stream;
+		for (const parameter of initParams) this.#table.addVariable(new VariableDefinition(parameter.name, parameter.typeName, blockStart, blockEnd));
+		while (!stream.atEOF()) {
+			const token = stream.current();
 			if (token.type === TokenType.Bracket && token.value === "}") break;
 			this.#readStatement(blockStart, blockEnd);
 		}
 	}
 
 	#readStatement(scopeStart: number, scopeEnd: number): void {
+		const stream = this.#stream;
 		if (this.#isVarDecl()) {
 			this.#readVarDecl(scopeStart, scopeEnd);
-			this.skipSemicolon();
+			stream.skipSemicolon();
 			return;
 		}
 
-		const token = this.current();
+		const token = stream.current();
 
 		if (token.type === TokenType.Keyword) {
 			switch (token.value) {
@@ -86,23 +94,23 @@ export class DocParser extends BaseParser {
 			case "while": this.#readWhile(scopeStart, scopeEnd); return;
 			case "for": this.#readFor(scopeStart, scopeEnd); return;
 			case "return": this.#skipToSemicolon(); return;
-			case "break": this.advance(); this.skipSemicolon(); return;
-			case "continue": this.advance(); this.skipSemicolon(); return;
+			case "break": stream.advance(); stream.skipSemicolon(); return;
+			case "continue": stream.advance(); stream.skipSemicolon(); return;
 			}
 		}
 
 		if (token.type === TokenType.Bracket && token.value === "{") {
 			const blockStart = token.range.startLine;
-			const blockEnd = this.findMatchingBrace();
-			this.advance();
+			const blockEnd = stream.findMatchingBrace();
+			stream.advance();
 			this.#readBlock([], blockStart, blockEnd);
-			const closing = this.current();
-			if (closing.type === TokenType.Bracket && closing.value === "}") this.advance();
+			const closing = stream.current();
+			if (closing.type === TokenType.Bracket && closing.value === "}") stream.advance();
 			return;
 		}
 
 		if (token.type === TokenType.Separator && token.value === ";") {
-			this.advance();
+			stream.advance();
 			return;
 		}
 
@@ -111,106 +119,106 @@ export class DocParser extends BaseParser {
 	//#endregion
 	//#region Control flow
 	#readIf(scopeStart: number, scopeEnd: number): void {
-		this.advance();
+		const stream = this.#stream;
+		stream.advance();
 		this.#skipBalanced("(", ")");
 		this.#readStatement(scopeStart, scopeEnd);
-		const token = this.current();
+		const token = stream.current();
 		if (token.type === TokenType.Keyword && token.value === "else") {
-			this.advance();
+			stream.advance();
 			this.#readStatement(scopeStart, scopeEnd);
 		}
 	}
 
 	#readWhile(scopeStart: number, scopeEnd: number): void {
-		this.advance();
+		this.#stream.advance();
 		this.#skipBalanced("(", ")");
 		this.#readStatement(scopeStart, scopeEnd);
 	}
 
 	#readFor(scopeStart: number, scopeEnd: number): void {
-		this.advance();
-		const open = this.current();
+		const stream = this.#stream;
+		stream.advance();
+		const open = stream.current();
 		if (!(open.type === TokenType.Bracket && open.value === "(")) {
 			this.#skipToSemicolon();
 			return;
 		}
-		this.advance();
+		stream.advance();
 
 		let name = "";
 		let typeName = "";
 
-		const nameToken = this.current();
+		const nameToken = stream.current();
 		if (nameToken.type === TokenType.Identifier) {
 			name = nameToken.value;
-			this.advance();
-			typeName = this.readType();
-			const inKeyword = this.current();
-			if (inKeyword.type === TokenType.Keyword && inKeyword.value === "in") this.advance();
+			stream.advance();
+			typeName = stream.readType();
+			const inKeyword = stream.current();
+			if (inKeyword.type === TokenType.Keyword && inKeyword.value === "in") stream.advance();
 		}
 
 		let depth = 1;
-		while (!this.atEOF() && depth > 0) {
-			const token = this.current();
+		while (!stream.atEOF() && depth > 0) {
+			const token = stream.current();
 			if (token.type === TokenType.Bracket && token.value === "(") depth++;
 			else if (token.type === TokenType.Bracket && token.value === ")") {
 				depth--;
 				if (depth === 0) break;
 			}
-			this.advance();
+			stream.advance();
 		}
-		const closeParen = this.current();
-		if (closeParen.type === TokenType.Bracket && closeParen.value === ")") this.advance();
+		const closeParen = stream.current();
+		if (closeParen.type === TokenType.Bracket && closeParen.value === ")") stream.advance();
 
-		const bodyToken = this.current();
+		const bodyToken = stream.current();
 		const bodyEnd = (bodyToken.type === TokenType.Bracket && bodyToken.value === "{")
-			? this.findMatchingBrace()
+			? stream.findMatchingBrace()
 			: scopeEnd;
 
-		if (name) this.#table.addVar(new VarDef(name, typeName, bodyToken.range.startLine, bodyEnd));
+		if (name) this.#table.addVariable(new VariableDefinition(name, typeName, bodyToken.range.startLine, bodyEnd));
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
 	//#endregion
 	//#region Declarations
 	#readVarDecl(scopeStart: number, scopeEnd: number): void {
-		const nameToken = this.advance();
-		const typeName = this.readType();
+		const stream = this.#stream;
+		const nameToken = stream.advance();
+		const typeName = stream.readType();
 
-		const colon = this.current();
+		const colon = stream.current();
 		if (colon.type === TokenType.Operator && colon.value === ":") {
-			this.advance();
+			stream.advance();
 			this.#skipToSemicolon();
 		}
 
-		this.#table.addVar(new VarDef(nameToken.value, typeName, nameToken.range.startLine, scopeEnd));
+		this.#table.addVariable(new VariableDefinition(nameToken.value, typeName, nameToken.range.startLine, scopeEnd));
 	}
 	//#endregion
 	//#region Utilities
 	#skipToSemicolon(): void {
-		while (!this.atEOF()) {
-			const token = this.current();
-			if (token.type === TokenType.Separator && token.value === ";") { this.advance(); return; }
+		const stream = this.#stream;
+		while (!stream.atEOF()) {
+			const token = stream.current();
+			if (token.type === TokenType.Separator && token.value === ";") { stream.advance(); return; }
 			if (token.type === TokenType.Bracket && token.value === "}") return;
-			this.advance();
+			stream.advance();
 		}
 	}
 
 	#skipBalanced(open: string, close: string): void {
-		const first = this.current();
+		const stream = this.#stream;
+		const first = stream.current();
 		if (!(first.type === TokenType.Bracket && first.value === open)) return;
-		this.advance();
 		let depth = 1;
-		while (!this.atEOF() && depth > 0) {
-			const token = this.current();
+		stream.advance();
+		while (!stream.atEOF() && depth > 0) {
+			const token = stream.current();
 			if (token.type === TokenType.Bracket && token.value === open) depth++;
-			else if (token.type === TokenType.Bracket && token.value === close) {
-				depth--;
-				if (depth === 0) break;
-			}
-			this.advance();
+			else if (token.type === TokenType.Bracket && token.value === close) depth--;
+			stream.advance();
 		}
-		const closing = this.current();
-		if (closing.type === TokenType.Bracket && closing.value === close) this.advance();
 	}
 	//#endregion
 }

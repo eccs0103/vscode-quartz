@@ -7,13 +7,16 @@ import { NamingConventions } from "../models/naming-conventions.js";
 
 //#region Validation service
 export class ValidationService {
+	static #identifierPattern: RegExp = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
+
 	validate(textDocument: TextDocument): Diagnostic[] {
 		const text = textDocument.getText();
 		const diagnostics: Diagnostic[] = [];
-		const identifierRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
+		const pattern = ValidationService.#identifierPattern;
+		pattern.lastIndex = 0;
 		let match: RegExpExecArray | null;
 
-		while ((match = identifierRegex.exec(text)) !== null) {
+		while ((match = pattern.exec(text)) !== null) {
 			const identifier = match[1];
 			const offset = match.index;
 

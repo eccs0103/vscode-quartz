@@ -1,5 +1,6 @@
 "use strict";
 
+import { Controller } from "adaptive-extender/node";
 import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange } from "vscode-languageserver/node";
 import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";
 import { SymbolService } from "../services/symbol-service.js";
@@ -10,7 +11,7 @@ import { FormattingService } from "../services/formatting-service.js";
 import { FoldingService } from "../services/folding-service.js";
 
 //#region Language server
-class LanguageServer {
+class LanguageServer extends Controller {
 	#connection = createConnection(ProposedFeatures.all);
 	#documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 	#hasConfigCapability = false;
@@ -23,6 +24,7 @@ class LanguageServer {
 	#foldingService: FoldingService;
 
 	constructor() {
+		super();
 		this.#symbolService = new SymbolService();
 		this.#validationService = new ValidationService();
 		this.#completionService = new CompletionService(this.#symbolService);
@@ -31,7 +33,7 @@ class LanguageServer {
 		this.#foldingService = new FoldingService();
 	}
 
-	start(): void {
+	async run(): Promise<void> {
 		const connection = this.#connection;
 		const documents = this.#documents;
 		connection.onInitialize(params => this.#onInitialize(params));
@@ -103,4 +105,4 @@ class LanguageServer {
 }
 //#endregion
 
-new LanguageServer().start();
+LanguageServer.launch();

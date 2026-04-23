@@ -1,7 +1,7 @@
 "use strict";
 
 //#region Symbol definitions
-export class ParamDef {
+export class ParameterDefinition {
 	name: string;
 	typeName: string;
 
@@ -11,19 +11,19 @@ export class ParamDef {
 	}
 }
 
-export class MethodDef {
+export class MethodDefinition {
 	name: string;
-	params: ParamDef[];
+	params: ParameterDefinition[];
 	retType: string;
 
-	constructor(name: string, params: ParamDef[], retType: string) {
+	constructor(name: string, params: ParameterDefinition[], retType: string) {
 		this.name = name;
 		this.params = params;
 		this.retType = retType;
 	}
 }
 
-export class FieldDef {
+export class FieldDefinition {
 	name: string;
 	typeName: string;
 
@@ -33,14 +33,14 @@ export class FieldDef {
 	}
 }
 
-export class ClassDef {
+export class TypeDefinition {
 	name: string;
 	typeParams: string[];
 	parent: string | undefined;
-	methods: MethodDef[];
-	fields: FieldDef[];
+	methods: MethodDefinition[];
+	fields: FieldDefinition[];
 
-	constructor(name: string, typeParams: string[], parent: string | undefined, methods: MethodDef[], fields: FieldDef[]) {
+	constructor(name: string, typeParams: string[], parent: string | undefined, methods: MethodDefinition[], fields: FieldDefinition[]) {
 		this.name = name;
 		this.typeParams = typeParams;
 		this.parent = parent;
@@ -49,14 +49,14 @@ export class ClassDef {
 	}
 }
 
-export class FuncDef {
+export class FunctionDefinition {
 	name: string;
-	params: ParamDef[];
+	params: ParameterDefinition[];
 	retType: string;
 	startLine: number;
 	endLine: number;
 
-	constructor(name: string, params: ParamDef[], retType: string, startLine: number, endLine: number) {
+	constructor(name: string, params: ParameterDefinition[], retType: string, startLine: number, endLine: number) {
 		this.name = name;
 		this.params = params;
 		this.retType = retType;
@@ -65,7 +65,7 @@ export class FuncDef {
 	}
 }
 
-export class VarDef {
+export class VariableDefinition {
 	name: string;
 	typeName: string;
 	startLine: number;
@@ -90,10 +90,10 @@ export class GenericType {
 }
 
 export class MemberSet {
-	methods: MethodDef[];
-	fields: FieldDef[];
+	methods: MethodDefinition[];
+	fields: FieldDefinition[];
 
-	constructor(methods: MethodDef[], fields: FieldDef[]) {
+	constructor(methods: MethodDefinition[], fields: FieldDefinition[]) {
 		this.methods = methods;
 		this.fields = fields;
 	}

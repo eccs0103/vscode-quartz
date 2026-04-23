@@ -1,8 +1,8 @@
 "use strict";
 
-//#region LanguageKeywords
+//#region Language keywords
 export class LanguageKeywords {
-	static #all: ReadonlySet<string> = new Set([
+	static #all: Set<string> = new Set([
 		"if", "else", "while", "repeat", "for", "in", "break", "continue",
 		"return", "use", "from", "this", "true", "false", "null",
 		"to", "as", "is"
@@ -12,7 +12,7 @@ export class LanguageKeywords {
 		return LanguageKeywords.#all.has(keyword);
 	}
 
-	static values(): ReadonlySet<string> {
+	static values(): Set<string> {
 		return LanguageKeywords.#all;
 	}
 }
