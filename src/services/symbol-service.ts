@@ -5,7 +5,8 @@ import * as path from "path";
 import { WorkspaceFolder } from "vscode-languageserver/node";
 import { HeaderParser } from "./header-parser.js";
 import { DocParser } from "./doc-parser.js";
-import { ClassDef, FieldDef, FuncDef, GenericType, MemberSet, MethodDef, ParamDef, SymbolTable, VarDef } from "./symbol-table.js";
+import { ClassDef, FieldDef, FuncDef, GenericType, MemberSet, MethodDef, ParamDef, VarDef } from "../models/symbol-defs.js";
+import { SymbolTable } from "./symbol-table.js";
 
 //#region Type step
 class TypeStep {

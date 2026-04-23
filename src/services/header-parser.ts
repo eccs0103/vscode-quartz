@@ -1,21 +1,19 @@
 "use strict";
 
-import { Lexer, Token, TokenRange, TokenType } from "./lexer.js";
-import { ClassDef, FieldDef, MethodDef, ParamDef, SymbolTable } from "./symbol-table.js";
+import { TokenType } from "../models/token.js";
+import { ClassDef, FieldDef, MethodDef, ParamDef } from "../models/symbol-defs.js";
+import { SymbolTable } from "./symbol-table.js";
+import { BaseParser } from "./base-parser.js";
 
 //#region Header parser
-export class HeaderParser {
-	#tokens: Token[] = [];
-	#cursor = 0;
-
+export class HeaderParser extends BaseParser {
 	parse(code: string): SymbolTable {
-		this.#tokens = new Lexer(code).tokenize();
-		this.#cursor = 0;
+		this.initTokens(code);
 		const table = new SymbolTable();
 
-		while (!this.#atEOF()) {
-			if (this.#current().type !== TokenType.Identifier) {
-				this.#advance();
+		while (!this.atEOF()) {
+			if (this.current().type !== TokenType.Identifier) {
+				this.advance();
 				continue;
 			}
 			const entry = this.#readClass();
@@ -26,159 +24,88 @@ export class HeaderParser {
 	}
 
 	#readClass(): ClassDef | null {
-		const name = this.#current().value;
-		this.#advance();
+		const name = this.current().value;
+		this.advance();
 
 		const typeParams: string[] = [];
-		if (this.#current().type === TokenType.Operator && this.#current().value === "<") {
-			this.#advance();
-			while (!this.#atEOF()) {
-				const token = this.#current();
+		if (this.current().type === TokenType.Operator && this.current().value === "<") {
+			this.advance();
+			while (!this.atEOF()) {
+				const token = this.current();
 				if (token.type === TokenType.Operator && token.value === ">") break;
 				if (token.type === TokenType.Identifier) typeParams.push(token.value);
-				this.#advance();
+				this.advance();
 			}
-			if (this.#current().type === TokenType.Operator) this.#advance();
+			if (this.current().type === TokenType.Operator) this.advance();
 		}
 
 		let parent: string | undefined;
-		if (this.#current().type === TokenType.Identifier && this.#current().value === "from") {
-			this.#advance();
-			parent = this.#readType();
+		if (this.current().type === TokenType.Identifier && this.current().value === "from") {
+			this.advance();
+			parent = this.readType();
 		}
 
-		while (!this.#atEOF()) {
-			const token = this.#current();
+		while (!this.atEOF()) {
+			const token = this.current();
 			if (token.type === TokenType.Bracket && token.value === "{") break;
-			this.#advance();
+			this.advance();
 		}
-		if (this.#atEOF()) return null;
-		this.#advance();
+		if (this.atEOF()) return null;
+		this.advance();
 
 		const methods: MethodDef[] = [];
 		const fields: FieldDef[] = [];
 
-		while (!this.#atEOF()) {
-			const token = this.#current();
+		while (!this.atEOF()) {
+			const token = this.current();
 			if (token.type === TokenType.Bracket && token.value === "}") break;
 			this.#readMember(methods, fields);
 		}
 
-		if (this.#current().type === TokenType.Bracket) this.#advance();
+		if (this.current().type === TokenType.Bracket) this.advance();
 		return new ClassDef(name, typeParams, parent, methods, fields);
 	}
 
 	#readMember(methods: MethodDef[], fields: FieldDef[]): void {
-		const first = this.#current();
+		const first = this.current();
 
 		if (first.type === TokenType.Bracket && first.value === "[") {
-			this.#advance();
+			this.advance();
 			let name = "[";
-			while (!this.#atEOF()) {
-				const token = this.#current();
+			while (!this.atEOF()) {
+				const token = this.current();
 				if (token.type === TokenType.Bracket && token.value === "]") break;
 				name += token.value;
-				this.#advance();
+				this.advance();
 			}
 			name += "]";
-			if (this.#current().type === TokenType.Bracket) this.#advance();
-			const params = this.#readParams();
-			const retType = this.#readType();
-			this.#skipSemicolon();
+			if (this.current().type === TokenType.Bracket) this.advance();
+			const params = this.readParams();
+			const retType = this.readType();
+			this.skipSemicolon();
 			methods.push(new MethodDef(name, params, retType));
 			return;
 		}
 
 		if (first.type !== TokenType.Identifier) {
-			this.#advance();
+			this.advance();
 			return;
 		}
 
 		const name = first.value;
-		this.#advance();
+		this.advance();
 
-		const next = this.#current();
+		const next = this.current();
 		if (next.type === TokenType.Bracket && next.value === "(") {
-			const params = this.#readParams();
-			const retType = this.#readType();
-			this.#skipSemicolon();
+			const params = this.readParams();
+			const retType = this.readType();
+			this.skipSemicolon();
 			methods.push(new MethodDef(name, params, retType));
 		} else {
-			const typeName = this.#readType();
-			this.#skipSemicolon();
+			const typeName = this.readType();
+			this.skipSemicolon();
 			fields.push(new FieldDef(name, typeName));
 		}
-	}
-
-	#readParams(): ParamDef[] {
-		const open = this.#current();
-		if (!(open.type === TokenType.Bracket && open.value === "(")) return [];
-		this.#advance();
-		const params: ParamDef[] = [];
-
-		while (!this.#atEOF()) {
-			const token = this.#current();
-			if (token.type === TokenType.Bracket && token.value === ")") break;
-			if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
-			if (token.type !== TokenType.Identifier) { this.#advance(); continue; }
-			const name = token.value;
-			this.#advance();
-			const typeName = this.#readType();
-			params.push(new ParamDef(name, typeName));
-		}
-
-		if (this.#current().type === TokenType.Bracket) this.#advance();
-		return params;
-	}
-
-	#readType(): string {
-		const base = this.#current();
-		if (base.type !== TokenType.Identifier) return "";
-		this.#advance();
-
-		const next = this.#current();
-		if (next.type === TokenType.Operator && next.value === "<") {
-			this.#advance();
-			const typeArgs: string[] = [];
-			while (!this.#atEOF()) {
-				const token = this.#current();
-				if (token.type === TokenType.Operator && token.value === ">") break;
-				if (token.type === TokenType.Separator && token.value === ",") { this.#advance(); continue; }
-				if (token.type === TokenType.Identifier) typeArgs.push(this.#readType());
-				else this.#advance();
-			}
-			if (this.#current().type === TokenType.Operator) this.#advance();
-			return `${base.value}<${typeArgs.join(", ")}>`;
-		}
-
-		const nullable = this.#current();
-		if (nullable.type === TokenType.Operator && nullable.value === "?") {
-			this.#advance();
-			return `Nullable<${base.value}>`;
-		}
-
-		return base.value;
-	}
-
-	#skipSemicolon(): void {
-		const token = this.#current();
-		if (token.type === TokenType.Separator && token.value === ";") this.#advance();
-	}
-
-	#current(): Token {
-		return this.#cursor < this.#tokens.length
-			? this.#tokens[this.#cursor]
-			: new Token(TokenType.EOF, "", new TokenRange(0, 0, 0, 0));
-	}
-
-	#advance(): Token {
-		const token = this.#current();
-		if (this.#cursor < this.#tokens.length) this.#cursor++;
-		return token;
-	}
-
-	#atEOF(): boolean {
-		return this.#cursor >= this.#tokens.length || this.#tokens[this.#cursor].type === TokenType.EOF;
 	}
 }
 //#endregion

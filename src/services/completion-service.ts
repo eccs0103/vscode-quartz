@@ -3,7 +3,8 @@
 import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
-import { FuncDef, SymbolTable } from "./symbol-table.js";
+import { FuncDef } from "../models/symbol-defs.js";
+import { SymbolTable } from "./symbol-table.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 
 //#region Completion service
