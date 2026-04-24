@@ -1,5 +1,6 @@
 "use strict";
 
+import "adaptive-extender/node";
 import * as path from "path";
 import * as vscode from "vscode";
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node.js";

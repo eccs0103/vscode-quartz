@@ -1,5 +1,6 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
@@ -8,7 +9,7 @@ import { LanguageKeywords } from "../models/language-keywords.js";
 
 //#region Completion service
 export class CompletionService {
-	static #memberAccessPattern: RegExp = /\.([A-Za-z_]\w*)?$/;
+	static #patternMemberAccess: RegExp = /\.([A-Za-z_]\w*)?$/;
 
 	#symbolService: SymbolService;
 
@@ -24,7 +25,7 @@ export class CompletionService {
 
 		const documentTable = symbolService.parse(text);
 
-		const dotMatch = CompletionService.#memberAccessPattern.exec(before);
+		const dotMatch = CompletionService.#patternMemberAccess.exec(before);
 		if (dotMatch !== null) {
 			const dotIndex = before.length - dotMatch[0].length;
 			const receiverType = symbolService.typeAt(before, dotIndex, position.line, documentTable);

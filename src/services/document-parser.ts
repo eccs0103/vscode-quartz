@@ -8,12 +8,11 @@ import { TokenStream } from "./token-stream.js";
 
 //#region Document parser
 export class DocumentParser {
-	#stream: TokenStream = new TokenStream(String.empty);
+	#stream!: TokenStream;
 	#table: SymbolTable = new SymbolTable();
 
 	parse(code: string): SymbolTable {
 		this.#stream = new TokenStream(code);
-		this.#table = new SymbolTable();
 		this.#readProgram();
 		return this.#table;
 	}

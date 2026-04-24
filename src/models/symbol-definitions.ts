@@ -1,5 +1,7 @@
 "use strict";
 
+import "adaptive-extender/node";
+
 //#region Symbol definitions
 export class ParameterDefinition {
 	name: string;

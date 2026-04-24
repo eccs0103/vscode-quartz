@@ -1,5 +1,6 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { Controller } from "adaptive-extender/node";
 import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange } from "vscode-languageserver/node.js";
 import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";

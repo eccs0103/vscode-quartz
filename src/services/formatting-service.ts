@@ -6,18 +6,18 @@ import { TextEdit, Range, Position } from "vscode-languageserver/node.js";
 
 //#region Formatting service
 export class FormattingService {
-	static #openBracePattern: RegExp = /\{/g;
-	static #closeBracePattern: RegExp = /\}/g;
-	static #indentPattern: RegExp = /^\s*/;
-	static #controlKeywordPattern: RegExp = /\b(if|else|while|for|in)$/;
-	static #operatorPattern: RegExp = /[:=!&|<>]/;
-	static #unaryContextPattern: RegExp = /[\s(,:]$/;
-	static #genericTailPattern: RegExp = /[A-Z][a-zA-Z0-9_]*$/;
-	static #genericNextTypePattern: RegExp = /^[A-Z]/;
-	static #operandBeforePattern: RegExp = /[a-zA-Z0-9_)>]/;
-	static #operandAfterPattern: RegExp = /[a-zA-Z0-9_\("<]/;
-	static #spacesPattern: RegExp = /\s+/g;
-	static #spaceBeforePunctuationPattern: RegExp = /\s+([;,)])/g;
+		static #patternOpenBrace: RegExp = /\{/g;
+		static #patternCloseBrace: RegExp = /\}/g;
+		static #patternIndent: RegExp = /^\s*/;
+		static #patternControlKeyword: RegExp = /\b(if|else|while|for|in)$/;
+		static #patternOperator: RegExp = /[:=!&|<>]/;
+		static #patternUnaryContext: RegExp = /[\s(,:]$/;
+		static #patternGenericTail: RegExp = /[A-Z][a-zA-Z0-9_]*$/;
+		static #patternGenericNextType: RegExp = /^[A-Z]/;
+		static #patternOperandBefore: RegExp = /[a-zA-Z0-9_)>]/;
+		static #patternOperandAfter: RegExp = /[a-zA-Z0-9_\"(<]/;
+		static #patternSpaces: RegExp = /\s+/g;
+		static #patternSpaceBeforePunctuation: RegExp = /\s+([;,)])/g;
 
 	getEdits(document: TextDocument): TextEdit[] {
 		const text = document.getText();
@@ -55,8 +55,8 @@ export class FormattingService {
 			}
 
 			if (line.includes("}") && line.includes("{")) {
-				const openCount = this.#countMatches(line, FormattingService.#openBracePattern);
-				const endCount = this.#countMatches(line, FormattingService.#closeBracePattern);
+				const openCount = this.#countMatches(line, FormattingService.#patternOpenBrace);
+				const endCount = this.#countMatches(line, FormattingService.#patternCloseBrace);
 				if (endCount > openCount) level = Math.max(0, level - (endCount - openCount));
 			}
 		}
@@ -69,7 +69,7 @@ export class FormattingService {
 	}
 
 	#formatLine(line: string): string {
-		const indent = line.match(FormattingService.#indentPattern)?.[0] ?? "";
+		const indent = line.match(FormattingService.#patternIndent)?.[0] ?? "";
 		const content = line.trim();
 
 		let inString = false;
@@ -97,7 +97,7 @@ export class FormattingService {
 
 			if (inString) { result += char; continue; }
 
-			if (char === "(" && offset > 0 && FormattingService.#controlKeywordPattern.test(result) && result[result.length - 1] !== " ") result += " ";
+			if (char === "(" && offset > 0 && FormattingService.#patternControlKeyword.test(result) && result[result.length - 1] !== " ") result += " ";
 
 			if (char === ",") {
 				result += char;
@@ -111,17 +111,17 @@ export class FormattingService {
 				break;
 			}
 
-			if (FormattingService.#operatorPattern.test(char) || char === "+" || char === "-" || char === "*" || char === "/") {
+			if (FormattingService.#patternOperator.test(char) || char === "+" || char === "-" || char === "*" || char === "/") {
 				const prevChar = result[result.length - 1];
-				const isUnary = (char === "+" || char === "-" || char === "!") && (FormattingService.#unaryContextPattern.test(result) || result.length === 0);
-				const isGeneric = (char === "<" || char === ">") && (FormattingService.#genericTailPattern.test(result) || FormattingService.#genericNextTypePattern.test(next));
+				const isUnary = (char === "+" || char === "-" || char === "!") && (FormattingService.#patternUnaryContext.test(result) || result.length === 0);
+				const isGeneric = (char === "<" || char === ">") && (FormattingService.#patternGenericTail.test(result) || FormattingService.#patternGenericNextType.test(next));
 
 				if (isUnary) {
 					result += char;
 				} else if (isGeneric) {
 					result += char;
 				} else {
-					if (prevChar && prevChar !== " " && FormattingService.#operandBeforePattern.test(prevChar)) result += " ";
+					if (prevChar && prevChar !== " " && FormattingService.#patternOperandBefore.test(prevChar)) result += " ";
 					result += char;
 					if ((char === "<" || char === ">" || char === "!" || char === "=") && next === "=") {
 						result += next;
@@ -129,7 +129,7 @@ export class FormattingService {
 						if (offset < content.length - 1 && content[offset + 1] !== " ") result += " ";
 						continue;
 					}
-					if (next && next !== " " && FormattingService.#operandAfterPattern.test(next) && !isGeneric) result += " ";
+					if (next && next !== " " && FormattingService.#patternOperandAfter.test(next) && !isGeneric) result += " ";
 				}
 				continue;
 			}
@@ -138,8 +138,8 @@ export class FormattingService {
 		}
 
 		const index = result.indexOf("//");
-		const spacesPattern = FormattingService.#spacesPattern;
-		const punctuationPattern = FormattingService.#spaceBeforePunctuationPattern;
+		const spacesPattern = FormattingService.#patternSpaces;
+		const punctuationPattern = FormattingService.#patternSpaceBeforePunctuation;
 		spacesPattern.lastIndex = 0;
 		punctuationPattern.lastIndex = 0;
 		if (index !== -1) {

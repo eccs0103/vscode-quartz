@@ -1,5 +1,6 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { Token, TokenRange, TokenType } from "../models/token.js";
 
 //#region Lexer

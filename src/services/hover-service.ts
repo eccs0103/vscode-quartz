@@ -1,5 +1,6 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { Hover, MarkupKind, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
@@ -20,7 +21,7 @@ class WordMatch {
 
 //#region Hover service
 export class HoverService {
-	static #wordPattern: RegExp = /[A-Za-z_]\w*/g;
+	static #patternWord: RegExp = /[A-Za-z_]\w*/g;
 
 	#symbolService: SymbolService;
 
@@ -104,7 +105,7 @@ export class HoverService {
 	}
 
 	#wordAt(text: string, offset: number): WordMatch | null {
-		const pattern = HoverService.#wordPattern;
+		const pattern = HoverService.#patternWord;
 		pattern.lastIndex = 0;
 		let match: RegExpExecArray | null;
 		while ((match = pattern.exec(text)) !== null) {

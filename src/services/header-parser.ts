@@ -8,7 +8,7 @@ import { TokenStream } from "./token-stream.js";
 
 //#region Header parser
 export class HeaderParser {
-	#stream: TokenStream = new TokenStream(String.empty);
+	#stream!: TokenStream;
 
 	parse(code: string): SymbolTable {
 		this.#stream = new TokenStream(code);

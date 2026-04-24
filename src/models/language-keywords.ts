@@ -1,5 +1,7 @@
 "use strict";
 
+import "adaptive-extender/node";
+
 //#region Language keywords
 export class LanguageKeywords {
 	static #all: Set<string> = new Set([

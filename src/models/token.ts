@@ -1,5 +1,7 @@
 "use strict";
 
+import "adaptive-extender/node";
+
 //#region Token types
 export enum TokenType {
 	Number = "Number",

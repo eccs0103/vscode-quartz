@@ -6,11 +6,11 @@ import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node.js";
 
 //#region Folding service
 export class FoldingService {
-	static #lineSplitPattern: RegExp = /\r?\n/;
+	static #patternLineSplit: RegExp = /\r?\n/;
 
 	getRanges(document: TextDocument): FoldingRange[] {
 		const ranges: FoldingRange[] = [];
-		const lines = document.getText().split(FoldingService.#lineSplitPattern);
+		const lines = document.getText().split(FoldingService.#patternLineSplit);
 		const stack: number[] = [];
 
 		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {

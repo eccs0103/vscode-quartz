@@ -1,5 +1,7 @@
 "use strict";
 
+import "adaptive-extender/node";
+
 //#region Hover data
 export class HoverData {
 	static #content: Map<string, string> = new Map([

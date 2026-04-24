@@ -23,8 +23,8 @@ class TypeStep {
 
 //#region Symbol service
 export class SymbolService {
-	static #typeWordPattern: RegExp = /\b[A-Za-z_]\w*\b/g;
-	static #identifierCharPattern: RegExp = /[A-Za-z_0-9]/;
+	static #patternTypeWord: RegExp = /\b[A-Za-z_]\w*\b/g;
+	static #patternIdentifierChar: RegExp = /[A-Za-z_0-9]/;
 
 	#runtimeTable: SymbolTable = new SymbolTable();
 
@@ -56,13 +56,13 @@ export class SymbolService {
 
 	static mapWith(typeName: string, substitution: Map<string, string>): string {
 		if (substitution.size === 0) return typeName;
-		const pattern = SymbolService.#typeWordPattern;
+		const pattern = SymbolService.#patternTypeWord;
 		pattern.lastIndex = 0;
 		return typeName.replace(pattern, word => substitution.get(word) ?? word);
 	}
 
 	static #isIdentifierChar(value: string): boolean {
-		return SymbolService.#identifierCharPattern.test(value);
+		return SymbolService.#patternIdentifierChar.test(value);
 	}
 
 	initialize(workspaceFolders: WorkspaceFolder[]): void {

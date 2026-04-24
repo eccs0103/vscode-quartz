@@ -1,5 +1,6 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { TypeDefinition, FunctionDefinition, VariableDefinition } from "../models/symbol-definitions.js";
 
 //#region Symbol table
