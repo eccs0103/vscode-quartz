@@ -145,8 +145,8 @@ export class DocumentParser {
 		}
 		stream.advance();
 
-		let name = "";
-		let typeName = "";
+		let name = String.empty;
+		let typeName = String.empty;
 
 		const nameToken = stream.current();
 		if (nameToken.type === TokenType.Identifier) {

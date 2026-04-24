@@ -17,14 +17,14 @@ export class TokenStream {
 	current(): Token {
 		return this.#cursor < this.#tokens.length
 			? this.#tokens[this.#cursor]
-			: new Token(TokenType.EndOfFile, "", new TokenRange(0, 0, 0, 0));
+			: new Token(TokenType.EndOfFile, String.empty, new TokenRange(0, 0, 0, 0));
 	}
 
 	peek(offset: number): Token {
 		const index = this.#cursor + offset;
 		return index < this.#tokens.length
 			? this.#tokens[index]
-			: new Token(TokenType.EndOfFile, "", new TokenRange(0, 0, 0, 0));
+			: new Token(TokenType.EndOfFile, String.empty, new TokenRange(0, 0, 0, 0));
 	}
 
 	advance(): Token {
@@ -34,7 +34,7 @@ export class TokenStream {
 	}
 
 	atEOF(): boolean {
-		return this.#cursor >= this.#tokens.length || this.#tokens[this.#cursor].type === TokenType.EndOfFile;
+		return this.#cursor >= this.#tokens.length;
 	}
 
 	skipSemicolon(): void {

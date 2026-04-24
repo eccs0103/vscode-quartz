@@ -14,9 +14,9 @@ export class SymbolTable {
 	}
 
 	addFunction(funcDefinition: FunctionDefinition): void {
-		const overloads = this.#functionMap.get(funcDefinition.name) ?? [];
-		overloads.push(funcDefinition);
-		this.#functionMap.set(funcDefinition.name, overloads);
+		const functionMap = this.#functionMap;
+		functionMap.add(funcDefinition.name, []);
+		functionMap.get(funcDefinition.name)?.push(funcDefinition);
 	}
 
 	addVariable(variableDefinition: VariableDefinition): void {

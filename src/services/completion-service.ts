@@ -5,6 +5,7 @@ import { CompletionItem, CompletionItemKind, Position } from "vscode-languageser
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
+import { TypeResolver } from "./type-resolver.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 
 //#region Completion service
@@ -38,11 +39,11 @@ export class CompletionService {
 
 	#getMembersOf(rawType: string): CompletionItem[] {
 		const symbolService = this.#symbolService;
-		const { base, typeArgs } = SymbolService.toGeneric(rawType);
+		const { base, typeArgs } = TypeResolver.toGeneric(rawType);
 		const rootType = symbolService.getType(base);
 		if (rootType === undefined) return [];
 
-		const substitution = SymbolService.toSubstitution(rootType.typeParams, typeArgs);
+		const substitution = TypeResolver.toSubstitution(rootType.typeParams, typeArgs);
 		const { methods, fields } = symbolService.getAllMembers(base);
 
 		const items: CompletionItem[] = [];
@@ -50,19 +51,18 @@ export class CompletionService {
 		const methodOverloads = new Map<string, typeof methods>();
 		for (const method of methods) {
 			if (method.name.startsWith("[")) continue;
-			const overloads = methodOverloads.get(method.name) ?? [];
-			overloads.push(method);
-			methodOverloads.set(method.name, overloads);
+			methodOverloads.add(method.name, []);
+			methodOverloads.get(method.name)?.push(method);
 		}
 
 		for (const [label, overloads] of methodOverloads) {
 			const first = overloads[0];
-			const detail = `(${first.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${SymbolService.mapWith(first.retType, substitution)}`;
-			const documentation = overloads.map(overload => `${label}(${overload.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${SymbolService.mapWith(overload.retType, substitution)}`).join("\n");
+			const detail = `(${first.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.retType, substitution)}`;
+			const documentation = overloads.map(overload => `${label}(${overload.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(overload.retType, substitution)}`).join("\n");
 			items.push({ label, kind: CompletionItemKind.Method, detail, documentation });
 		}
 
-		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: SymbolService.mapWith(typeName, substitution), documentation: `Field of ${base}` });
+		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: TypeResolver.mapWith(typeName, substitution), documentation: `Field of ${base}` });
 
 		return items;
 	}

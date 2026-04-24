@@ -22,8 +22,8 @@ export class NamingConventions {
 	static toPascalCase(value: string): string {
 		return value
 			.split(NamingConventions.#patternWordSplit)
-			.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-			.join("");
+			.map(word => word.toTitleCase())
+			.join(String.empty);
 	}
 
 	static toSnakeCase(value: string): string {
@@ -34,7 +34,7 @@ export class NamingConventions {
 		return value
 			.replace(patternUpper, "_$1")
 			.toLowerCase()
-			.replace(NamingConventions.#patternLeadingUnderscore, "")
+			.replace(NamingConventions.#patternLeadingUnderscore, String.empty)
 			.replace(patternSnakeCleanup, "_");
 	}
 }

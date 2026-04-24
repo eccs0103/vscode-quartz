@@ -5,19 +5,8 @@ import { Hover, MarkupKind, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
+import { TypeResolver } from "./type-resolver.js";
 import { HoverData } from "../models/hover-data.js";
-
-//#region Word match
-class WordMatch {
-	word: string;
-	start: number;
-
-	constructor(word: string, start: number) {
-		this.word = word;
-		this.start = start;
-	}
-}
-//#endregion
 
 //#region Hover service
 export class HoverService {
@@ -33,10 +22,11 @@ export class HoverService {
 		const symbolService = this.#symbolService;
 		const text = document.getText();
 		const offset = document.offsetAt(position);
-		const found = this.#wordAt(text, offset);
-		if (found === null) return null;
+		const match = this.#wordAt(text, offset);
+		if (match === null) return null;
 
-		const { word, start } = found;
+		const word = match[0];
+		const start = match.index;
 		const documentTable = symbolService.parse(text);
 
 		if (start > 0 && text[start - 1] === ".") {
@@ -50,22 +40,22 @@ export class HoverService {
 
 	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
 		const symbolService = this.#symbolService;
-		const { base, typeArgs } = SymbolService.toGeneric(typeName);
+		const { base, typeArgs } = TypeResolver.toGeneric(typeName);
 		const typeDefinition = symbolService.getType(base);
 		if (typeDefinition === undefined) return null;
 
-		const substitution = SymbolService.toSubstitution(typeDefinition.typeParams, typeArgs);
+		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 		const { methods, fields } = symbolService.getAllMembers(base);
 
 		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
 		if (matching.length > 0) {
-			const signatures = matching.map(method => `${memberName}(${method.params.map(parameter => `${parameter.name} ${SymbolService.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${SymbolService.mapWith(method.retType, substitution)}`).join("\n");
+			const signatures = matching.map(method => `${memberName}(${method.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(method.retType, substitution)}`).join("\n");
 			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
 		const field = fields.find(entry => entry.name === memberName);
 		if (field === undefined) return null;
-		return this.#md(`\`\`\`quartz\n${memberName} ${SymbolService.mapWith(field.typeName, substitution)}\n\`\`\``);
+		return this.#md(`\`\`\`quartz\n${memberName} ${TypeResolver.mapWith(field.typeName, substitution)}\n\`\`\``);
 	}
 
 	#makeHover(word: string, line: number, documentTable: SymbolTable): Hover | null {
@@ -78,9 +68,9 @@ export class HoverService {
 				if (name.startsWith("[")) continue;
 				memberLines.push(`  ${name}(${params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${retType}`);
 			}
-			const typeParamStr = typeDefinition.typeParams.length > 0 ? `<${typeDefinition.typeParams.join(", ")}>` : "";
+			const typeParamStr = typeDefinition.typeParams.length > 0 ? `<${typeDefinition.typeParams.join(", ")}>` : String.empty;
 			const header = typeDefinition.parent !== undefined ? `${typeDefinition.name}${typeParamStr} from ${typeDefinition.parent}` : `${typeDefinition.name}${typeParamStr}`;
-			const body = memberLines.length > 0 ? `\n${memberLines.join("\n")}\n` : "";
+			const body = memberLines.length > 0 ? `\n${memberLines.join("\n")}\n` : String.empty;
 			return this.#md(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
@@ -104,12 +94,12 @@ export class HoverService {
 		return { contents: { kind: MarkupKind.Markdown, value } };
 	}
 
-	#wordAt(text: string, offset: number): WordMatch | null {
+	#wordAt(text: string, offset: number): RegExpExecArray | null {
 		const pattern = HoverService.#patternWord;
 		pattern.lastIndex = 0;
 		let match: RegExpExecArray | null;
 		while ((match = pattern.exec(text)) !== null) {
-			if (match.index <= offset && offset <= match.index + match[0].length) return new WordMatch(match[0], match.index);
+			if (match.index <= offset && offset <= match.index + match[0].length) return match;
 		}
 		return null;
 	}

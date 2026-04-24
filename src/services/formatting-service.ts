@@ -37,7 +37,7 @@ export class FormattingService {
 		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
 			const raw = lines[lineIndex];
 			if (String.isWhitespace(raw)) {
-				formatted.push("");
+				formatted.push(String.empty);
 				continue;
 			}
 			let line = raw.trim();
@@ -69,16 +69,16 @@ export class FormattingService {
 	}
 
 	#formatLine(line: string): string {
-		const indent = line.match(FormattingService.#patternIndent)?.[0] ?? "";
+		const indent = line.match(FormattingService.#patternIndent)?.[0] ?? String.empty;
 		const content = line.trim();
 
 		let inString = false;
-		let openQuote = "";
-		let result = "";
+		let openQuote = String.empty;
+		let result = String.empty;
 
 		for (let offset = 0; offset < content.length; offset++) {
 			const char = content[offset];
-			const next = offset < content.length - 1 ? content[offset + 1] : "";
+			const next = offset < content.length - 1 ? content[offset + 1] : String.empty;
 
 			if ((char === '"' || char === "'") && (offset === 0 || content[offset - 1] !== "\\")) {
 				if (!inString) {
@@ -86,7 +86,7 @@ export class FormattingService {
 					openQuote = char;
 				} else if (openQuote === char) {
 					inString = false;
-					openQuote = "";
+					openQuote = String.empty;
 				} else {
 					result += char;
 					continue;
