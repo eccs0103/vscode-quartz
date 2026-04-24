@@ -57,12 +57,11 @@ export class CompletionService {
 
 		for (const [label, overloads] of methodOverloads) {
 			const first = overloads[0];
-			const detail = `(${first.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.retType, substitution)}`;
-			const documentation = overloads.map(overload => `${label}(${overload.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(overload.retType, substitution)}`).join("\n");
-			items.push({ label, kind: CompletionItemKind.Method, detail, documentation });
+			const detail = `${rawType}.${label}(${first.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.retType, substitution)}`;
+			items.push({ label, kind: CompletionItemKind.Method, detail });
 		}
 
-		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: TypeResolver.mapWith(typeName, substitution), documentation: `Field of ${base}` });
+		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: TypeResolver.mapWith(typeName, substitution) });
 
 		return items;
 	}
@@ -91,8 +90,10 @@ export class CompletionService {
 
 	#addFunctionItems(items: CompletionItem[], added: Set<string>, table: SymbolTable): void {
 		for (const [name, overloads] of table.functionEntries()) {
-			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
-			this.#addItem(items, added, name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));
+			const first = overloads[0];
+			const prefix = first.ownerType !== undefined ? `${first.ownerType}.` : '';
+			const detail = `${prefix}${name}(${first.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${first.retType}`;
+			this.#addItem(items, added, name, CompletionItemKind.Function, detail);
 		}
 	}
 

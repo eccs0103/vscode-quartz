@@ -2,7 +2,7 @@
 
 import "adaptive-extender/node";
 import { Controller } from "adaptive-extender/node";
-import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange } from "vscode-languageserver/node.js";
+import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type SignatureHelpParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange, SignatureHelp } from "vscode-languageserver/node.js";
 import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";
 import { SymbolService } from "../services/symbol-service.js";
 import { ValidationService } from "../services/validation-service.js";
@@ -10,6 +10,7 @@ import { CompletionService } from "../services/completion-service.js";
 import { HoverService } from "../services/hover-service.js";
 import { FormattingService } from "../services/formatting-service.js";
 import { FoldingService } from "../services/folding-service.js";
+import { SignatureService } from "../services/signature-service.js";
 
 //#region Language server
 class LanguageServer extends Controller {
@@ -23,6 +24,7 @@ class LanguageServer extends Controller {
 	#hoverService: HoverService;
 	#formattingService: FormattingService;
 	#foldingService: FoldingService;
+	#signatureService: SignatureService;
 
 	constructor() {
 		super();
@@ -32,6 +34,7 @@ class LanguageServer extends Controller {
 		this.#hoverService = new HoverService(this.#symbolService);
 		this.#formattingService = new FormattingService();
 		this.#foldingService = new FoldingService();
+		this.#signatureService = new SignatureService(this.#symbolService);
 	}
 
 	async run(): Promise<void> {
@@ -42,6 +45,7 @@ class LanguageServer extends Controller {
 		documents.onDidOpen(event => this.#sendDiagnostics(event.document));
 		documents.onDidChangeContent(event => this.#sendDiagnostics(event.document));
 		connection.onCompletion(params => this.#onCompletion(params));
+		connection.onSignatureHelp(params => this.#onSignatureHelp(params));
 		connection.onHover(params => this.#onHover(params));
 		connection.onDocumentFormatting(params => this.#onDocumentFormatting(params));
 		connection.onFoldingRanges(params => this.#onFoldingRanges(params));
@@ -57,6 +61,7 @@ class LanguageServer extends Controller {
 			capabilities: {
 				textDocumentSync: TextDocumentSyncKind.Incremental,
 				completionProvider: { resolveProvider: false, triggerCharacters: ["."] },
+				signatureHelpProvider: { triggerCharacters: ["(", ","], retriggerCharacters: [","] },
 				documentFormattingProvider: true,
 				hoverProvider: true,
 				foldingRangeProvider: true
@@ -84,6 +89,12 @@ class LanguageServer extends Controller {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
 		return this.#completionService.getCompletions(document, params.position);
+	}
+
+	#onSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
+		const document = this.#documents.get(params.textDocument.uri);
+		if (document === undefined) return null;
+		return this.#signatureService.getSignatureHelp(document, params.position);
 	}
 
 	#onHover(params: HoverParams): Hover | null {

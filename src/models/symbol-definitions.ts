@@ -49,6 +49,10 @@ export class TypeDefinition {
 		this.methods = methods;
 		this.fields = fields;
 	}
+
+	get isTemplate(): boolean {
+		return this.typeParams.length > 0;
+	}
 }
 
 export class FunctionDefinition {
@@ -57,13 +61,15 @@ export class FunctionDefinition {
 	retType: string;
 	startLine: number;
 	endLine: number;
+	ownerType: string | undefined;
 
-	constructor(name: string, params: ParameterDefinition[], retType: string, startLine: number, endLine: number) {
+	constructor(name: string, params: ParameterDefinition[], retType: string, startLine: number, endLine: number, ownerType?: string) {
 		this.name = name;
 		this.params = params;
 		this.retType = retType;
 		this.startLine = startLine;
 		this.endLine = endLine;
+		this.ownerType = ownerType;
 	}
 }
 

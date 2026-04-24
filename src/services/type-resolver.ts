@@ -204,7 +204,8 @@ export class TypeResolver {
 		if (variable !== undefined) return variable.typeName;
 		const overloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
 		if (overloads !== undefined && overloads.length > 0) return overloads[0].retType;
-		if (runtimeTable.hasType(name)) return name;
+		const typeDefinition = runtimeTable.getType(name);
+		if (typeDefinition !== undefined && !typeDefinition.isTemplate) return name;
 		return null;
 	}
 }

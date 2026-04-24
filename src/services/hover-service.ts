@@ -27,18 +27,19 @@ export class HoverService {
 
 		const word = match[0];
 		const start = match.index;
+		const wordEnd = start + word.length;
 		const documentTable = symbolService.parse(text);
 
 		if (start > 0 && text[start - 1] === ".") {
 			const receiverType = symbolService.typeAt(text, start - 1, position.line, documentTable);
 			if (receiverType === null) return null;
-			return this.#makeHoverForMember(word, receiverType);
+			return this.#makeHoverForMember(word, wordEnd, receiverType, text);
 		}
 
-		return this.#makeHover(word, position.line, documentTable);
+		return this.#makeHover(word, wordEnd, position.line, text, documentTable);
 	}
 
-	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
+	#makeHoverForMember(memberName: string, wordEnd: number, typeName: string, text: string): Hover | null {
 		const symbolService = this.#symbolService;
 		const { base, typeArgs } = TypeResolver.toGeneric(typeName);
 		const typeDefinition = symbolService.getType(base);
@@ -49,8 +50,10 @@ export class HoverService {
 
 		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
 		if (matching.length > 0) {
-			const signatures = matching.map(method => `${memberName}(${method.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(method.retType, substitution)}`).join("\n");
-			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
+			const argCount = this.#argCountAt(text, wordEnd);
+			const resolved = matching[this.#pickOverloadIndex(matching.map(method => method.params.length), argCount)];
+			const signature = `${typeName}.${memberName}(${resolved.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
+			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\``);
 		}
 
 		const field = fields.find(entry => entry.name === memberName);
@@ -58,7 +61,7 @@ export class HoverService {
 		return this.#md(`\`\`\`quartz\n${memberName} ${TypeResolver.mapWith(field.typeName, substitution)}\n\`\`\``);
 	}
 
-	#makeHover(word: string, line: number, documentTable: SymbolTable): Hover | null {
+	#makeHover(word: string, wordEnd: number, line: number, text: string, documentTable: SymbolTable): Hover | null {
 		const symbolService = this.#symbolService;
 		const typeDefinition = symbolService.getType(word) ?? documentTable.getType(word);
 		if (typeDefinition !== undefined) {
@@ -77,8 +80,11 @@ export class HoverService {
 		const runtime = symbolService.runtimeTable();
 		const allOverloads = [...(runtime.getFunctions(word) ?? []), ...(documentTable.getFunctions(word) ?? [])];
 		if (allOverloads.length > 0) {
-			const signatures = allOverloads.map(overload => `${overload.name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`).join("\n");
-			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
+			const argCount = this.#argCountAt(text, wordEnd);
+			const resolved = allOverloads[this.#pickOverloadIndex(allOverloads.map(overload => overload.params.length), argCount)];
+			const prefix = resolved.ownerType !== undefined ? `${resolved.ownerType}.` : '';
+			const signature = `${prefix}${resolved.name}(${resolved.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.retType}`;
+			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\``);
 		}
 
 		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === word);
@@ -88,6 +94,40 @@ export class HoverService {
 		if (documentation !== undefined) return this.#md(documentation);
 
 		return null;
+	}
+
+	#argCountAt(text: string, scanStart: number): number {
+		let offset = scanStart;
+		while (offset < text.length && (text[offset] === ' ' || text[offset] === '\t')) offset++;
+		if (offset >= text.length || text[offset] !== '(') return -1;
+		offset++;
+		let depth = 0;
+		let commas = 0;
+		let hasContent = false;
+		while (offset < text.length) {
+			const char = text[offset];
+			if (char === '"' || char === "'") {
+				const quoteChar = char; offset++;
+				while (offset < text.length && text[offset] !== quoteChar) { if (text[offset] === '\\') offset++; offset++; }
+				hasContent = true;
+			} else if (char === '(' || char === '[') { depth++; hasContent = true; }
+			else if (char === ')' || char === ']') { if (depth === 0) break; depth--; hasContent = true; }
+			else if (char === ',' && depth === 0) { commas++; hasContent = true; }
+			else if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') { hasContent = true; }
+			offset++;
+		}
+		return hasContent ? commas + 1 : 0;
+	}
+
+	#pickOverloadIndex(paramCounts: number[], argCount: number): number {
+		if (argCount < 0) return 0;
+		for (let index = 0; index < paramCounts.length; index++) {
+			if (paramCounts[index] === argCount) return index;
+		}
+		for (let index = 0; index < paramCounts.length; index++) {
+			if (paramCounts[index] > argCount) return index;
+		}
+		return paramCounts.length - 1;
 	}
 
 	#md(value: string): Hover {
