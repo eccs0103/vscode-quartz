@@ -2,7 +2,7 @@
 
 import "adaptive-extender/node";
 import { Lexer } from "./lexer.js";
-import { Token, TokenRange, TokenType } from "../models/token.js";
+import { Token, TokenType } from "../models/token.js";
 import { ParameterDefinition } from "../models/symbol-definitions.js";
 
 //#region Token stream
@@ -14,46 +14,39 @@ export class TokenStream {
 		this.#tokens = new Lexer(code).tokenize();
 	}
 
-	current(): Token {
-		return this.#cursor < this.#tokens.length
-			? this.#tokens[this.#cursor]
-			: new Token(TokenType.EndOfFile, String.empty, new TokenRange(0, 0, 0, 0));
+	current(): Token | null {
+		return this.#cursor < this.#tokens.length ? this.#tokens[this.#cursor] : null;
 	}
 
-	peek(offset: number): Token {
+	peek(offset: number): Token | null {
 		const index = this.#cursor + offset;
-		return index < this.#tokens.length
-			? this.#tokens[index]
-			: new Token(TokenType.EndOfFile, String.empty, new TokenRange(0, 0, 0, 0));
+		return index < this.#tokens.length ? this.#tokens[index] : null;
 	}
 
-	advance(): Token {
+	advance(): Token | null {
 		const token = this.current();
 		if (this.#cursor < this.#tokens.length) this.#cursor++;
 		return token;
 	}
 
-	atEOF(): boolean {
-		return this.#cursor >= this.#tokens.length;
-	}
-
 	skipSemicolon(): void {
 		const token = this.current();
-		if (token.type === TokenType.Separator && token.value === ";") this.advance();
+		if (token !== null && token.type === TokenType.Separator && token.value === ";") this.advance();
 	}
 
 	readType(): string {
 		const base = this.current();
-		if (base.type !== TokenType.Identifier) return String.empty;
+		if (base === null || base.type !== TokenType.Identifier) return String.empty;
 		this.advance();
 
 		const next = this.current();
-		if (next.type === TokenType.Operator && next.value === "<") {
+		if (next !== null && next.type === TokenType.Operator && next.value === "<") {
 			this.advance();
 			const typeArgs: string[] = [];
 			let depth = 1;
-			while (!this.atEOF() && depth > 0) {
+			while (true) {
 				const token = this.current();
+				if (token === null || depth === 0) break;
 				if (token.type === TokenType.Operator && token.value === "<") { depth++; this.advance(); continue; }
 				if (token.type === TokenType.Operator && token.value === ">") { depth--; if (depth === 0) break; this.advance(); continue; }
 				if (token.type === TokenType.Identifier) { typeArgs.push(this.readType()); continue; }
@@ -61,12 +54,12 @@ export class TokenStream {
 				this.advance();
 			}
 			const close = this.current();
-			if (close.type === TokenType.Operator && close.value === ">") this.advance();
+			if (close !== null && close.type === TokenType.Operator && close.value === ">") this.advance();
 			return `${base.value}<${typeArgs.join(", ")}>`;
 		}
 
 		const nullable = this.current();
-		if (nullable.type === TokenType.Operator && nullable.value === "?") {
+		if (nullable !== null && nullable.type === TokenType.Operator && nullable.value === "?") {
 			this.advance();
 			return `Nullable<${base.value}>`;
 		}
@@ -76,11 +69,12 @@ export class TokenStream {
 
 	readParams(): ParameterDefinition[] {
 		const open = this.current();
-		if (!(open.type === TokenType.Bracket && open.value === "(")) return [];
+		if (open === null || !(open.type === TokenType.Bracket && open.value === "(")) return [];
 		this.advance();
 		const params: ParameterDefinition[] = [];
-		while (!this.atEOF()) {
+		while (true) {
 			const token = this.current();
+			if (token === null) break;
 			if (token.type === TokenType.Bracket && token.value === ")") break;
 			if (token.type === TokenType.Separator) { this.advance(); continue; }
 			if (token.type !== TokenType.Identifier) { this.advance(); continue; }
@@ -90,14 +84,15 @@ export class TokenStream {
 			params.push(new ParameterDefinition(name, typeName));
 		}
 		const close = this.current();
-		if (close.type === TokenType.Bracket && close.value === ")") this.advance();
+		if (close !== null && close.type === TokenType.Bracket && close.value === ")") this.advance();
 		return params;
 	}
 
 	findMatchingBrace(): number {
+		const tokens = this.#tokens;
 		let depth = 0;
-		for (let index = this.#cursor; index < this.#tokens.length; index++) {
-			const token = this.#tokens[index];
+		for (let index = this.#cursor; index < tokens.length; index++) {
+			const token = tokens[index];
 			if (token.type === TokenType.Bracket && token.value === "{") depth++;
 			else if (token.type === TokenType.Bracket && token.value === "}") {
 				depth--;

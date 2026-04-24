@@ -15,8 +15,10 @@ export class HeaderParser {
 		const stream = this.#stream;
 		const table = new SymbolTable();
 
-		while (!stream.atEOF()) {
-			if (stream.current().type !== TokenType.Identifier) {
+		while (true) {
+			const token = stream.current();
+			if (token === null) break;
+			if (token.type !== TokenType.Identifier) {
 				stream.advance();
 				continue;
 			}
@@ -29,63 +31,71 @@ export class HeaderParser {
 
 	#readClass(): TypeDefinition | null {
 		const stream = this.#stream;
-		const name = stream.current().value;
+		const nameToken = stream.current();
+		if (nameToken === null) return null;
+		const name = nameToken.value;
 		stream.advance();
 
 		const typeParams: string[] = [];
-		if (stream.current().type === TokenType.Operator && stream.current().value === "<") {
+		const openAngle = stream.current();
+		if (openAngle !== null && openAngle.type === TokenType.Operator && openAngle.value === "<") {
 			stream.advance();
-			while (!stream.atEOF()) {
+			while (true) {
 				const token = stream.current();
-				if (token.type === TokenType.Operator && token.value === ">") break;
+				if (token === null || (token.type === TokenType.Operator && token.value === ">")) break;
 				if (token.type === TokenType.Identifier) typeParams.push(token.value);
 				stream.advance();
 			}
-			if (stream.current().type === TokenType.Operator) stream.advance();
+			const closeAngle = stream.current();
+			if (closeAngle !== null && closeAngle.type === TokenType.Operator) stream.advance();
 		}
 
 		let parent: string | undefined;
-		if (stream.current().type === TokenType.Identifier && stream.current().value === "from") {
+		const fromToken = stream.current();
+		if (fromToken !== null && fromToken.type === TokenType.Identifier && fromToken.value === "from") {
 			stream.advance();
 			parent = stream.readType();
 		}
 
-		while (!stream.atEOF()) {
+		while (true) {
 			const token = stream.current();
+			if (token === null) return null;
 			if (token.type === TokenType.Bracket && token.value === "{") break;
 			stream.advance();
 		}
-		if (stream.atEOF()) return null;
 		stream.advance();
 
 		const methods: MethodDefinition[] = [];
 		const fields: FieldDefinition[] = [];
 
-		while (!stream.atEOF()) {
+		while (true) {
 			const token = stream.current();
-			if (token.type === TokenType.Bracket && token.value === "}") break;
+			if (token === null || (token.type === TokenType.Bracket && token.value === "}")) break;
 			this.#readMember(methods, fields);
 		}
 
-		if (stream.current().type === TokenType.Bracket) stream.advance();
+		const closing = stream.current();
+		if (closing !== null && closing.type === TokenType.Bracket) stream.advance();
 		return new TypeDefinition(name, typeParams, parent, methods, fields);
 	}
 
 	#readMember(methods: MethodDefinition[], fields: FieldDefinition[]): void {
 		const stream = this.#stream;
 		const first = stream.current();
+		if (first === null) return;
 
 		if (first.type === TokenType.Bracket && first.value === "[") {
 			stream.advance();
 			let name = "[";
-			while (!stream.atEOF()) {
+			while (true) {
 				const token = stream.current();
-				if (token.type === TokenType.Bracket && token.value === "]") break;
+				if (token === null || (token.type === TokenType.Bracket && token.value === "]")) break;
 				name += token.value;
 				stream.advance();
 			}
 			name += "]";
-			if (stream.current().type === TokenType.Bracket) stream.advance();
+			const afterBracket = stream.current();
+			if (afterBracket !== null && afterBracket.type === TokenType.Bracket) stream.advance();
 			const params = stream.readParams();
 			const retType = stream.readType();
 			stream.skipSemicolon();
@@ -102,7 +112,7 @@ export class HeaderParser {
 		stream.advance();
 
 		const next = stream.current();
-		if (next.type === TokenType.Bracket && next.value === "(") {
+		if (next !== null && next.type === TokenType.Bracket && next.value === "(") {
 			const params = stream.readParams();
 			const retType = stream.readType();
 			stream.skipSemicolon();
