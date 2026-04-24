@@ -75,6 +75,7 @@ export class FormattingService {
 		let inString = false;
 		let openQuote = String.empty;
 		let result = String.empty;
+		let genericDepth = 0;
 
 		for (let offset = 0; offset < content.length; offset++) {
 			const char = content[offset];
@@ -114,11 +115,16 @@ export class FormattingService {
 			if (FormattingService.#patternOperator.test(char) || char === "+" || char === "-" || char === "*" || char === "/") {
 				const prevChar = result[result.length - 1];
 				const isUnary = (char === "+" || char === "-" || char === "!") && (FormattingService.#patternUnaryContext.test(result) || result.length === 0);
-				const isGeneric = (char === "<" || char === ">") && (FormattingService.#patternGenericTail.test(result) || FormattingService.#patternGenericNextType.test(next));
+				const isGenericOpen = char === "<" && (FormattingService.#patternGenericTail.test(result) || FormattingService.#patternGenericNextType.test(next));
+				const isGenericClose = char === ">" && genericDepth > 0;
 
 				if (isUnary) {
 					result += char;
-				} else if (isGeneric) {
+				} else if (isGenericOpen) {
+					genericDepth++;
+					result += char;
+				} else if (isGenericClose) {
+					genericDepth--;
 					result += char;
 				} else {
 					if (prevChar && prevChar !== " " && FormattingService.#patternOperandBefore.test(prevChar)) result += " ";
@@ -129,7 +135,7 @@ export class FormattingService {
 						if (offset < content.length - 1 && content[offset + 1] !== " ") result += " ";
 						continue;
 					}
-					if (next && next !== " " && FormattingService.#patternOperandAfter.test(next) && !isGeneric) result += " ";
+					if (next && next !== " " && FormattingService.#patternOperandAfter.test(next)) result += " ";
 				}
 				continue;
 			}

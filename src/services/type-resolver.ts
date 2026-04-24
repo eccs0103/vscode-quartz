@@ -100,6 +100,7 @@ export class TypeResolver {
 		if (cursor < 0) return null;
 
 		if (text[cursor] === ")") {
+			const endParen = cursor;
 			let depth = 1;
 			cursor--;
 			while (cursor >= 0 && depth > 0) {
@@ -108,7 +109,10 @@ export class TypeResolver {
 				cursor--;
 			}
 			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-			if (cursor < 0 || !TypeResolver.#isIdentifierChar(text[cursor])) return null;
+			if (cursor < 0 || !TypeResolver.#isIdentifierChar(text[cursor])) {
+				if (cursor >= 0 && text[cursor] === ">") return this.#typeFromGeneric(text, cursor);
+				return this.typeAt(text, endParen, line, runtimeTable, docTable);
+			}
 			const nameEnd = cursor;
 			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
 			const name = text.slice(cursor + 1, nameEnd + 1);
@@ -168,10 +172,34 @@ export class TypeResolver {
 			return this.#typeOf(name, line, runtimeTable, docTable);
 		}
 
+		if (text[cursor] === ">") return this.#typeFromGeneric(text, cursor);
+
+		if (text[cursor] === '"') return "String";
+		if (text[cursor] === "'") return "Character";
+
 		return null;
 	}
 
+	#typeFromGeneric(text: string, cursor: number): string | null {
+		const typeEnd = cursor;
+		let depth = 1;
+		cursor--;
+		while (cursor >= 0 && depth > 0) {
+			if (text[cursor] === ">") depth++;
+			else if (text[cursor] === "<") depth--;
+			cursor--;
+		}
+		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
+		if (cursor < 0 || !TypeResolver.#isIdentifierChar(text[cursor])) return null;
+		const nameEnd = cursor;
+		while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
+		return text.slice(cursor + 1, typeEnd + 1).replace(/\s+/g, "");
+	}
+
 	#typeOf(name: string, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
+		if (name === "true" || name === "false") return "Boolean";
+		if (name === "null") return "Null";
+		if (name.length > 0 && name[0] >= "0" && name[0] <= "9") return "Number";
 		const variable = [...runtimeTable.getVariablesAt(line), ...docTable.getVariablesAt(line)].find(entry => entry.name === name);
 		if (variable !== undefined) return variable.typeName;
 		const overloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
