@@ -10,7 +10,8 @@
 	},
 	"icon": "images/icon.png",
 	"engines": {
-		"vscode": "^1.82.0"
+		"vscode": "^1.82.0",
+		"node": ">=22 <25"
 	},
 	"categories": [ "Programming Languages", "Formatters", "Linters" ],
 	"keywords": [ "quartz", "qrz", "syntax", "highlighting", "formatter", "language-server" ],
@@ -40,14 +41,14 @@
 		"watch": "tsc -watch -p ./"
 	},
 	"devDependencies": {
-		"@types/node": "^20.0.0",
-		"@types/vscode": "^1.82.0",
-		"typescript": "^5.9.3"
+		"@types/node": "^25.6.0",
+		"@types/vscode": "^1.116.0",
+		"typescript": "^6.0.3"
 	},
 	"dependencies": {
 		"adaptive-extender": "^0.9.13",
-		"vscode-languageclient": "^9.0.0",
-		"vscode-languageserver": "^9.0.0",
-		"vscode-languageserver-textdocument": "^1.0.0"
+		"vscode-languageclient": "^9.0.1",
+		"vscode-languageserver": "^9.0.1",
+		"vscode-languageserver-textdocument": "^1.0.12"
 	}
 }

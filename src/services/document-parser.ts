@@ -1,18 +1,18 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { TokenType } from "../models/token.js";
-import { FunctionDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-defs.js";
+import { FunctionDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
 
 //#region Document parser
 export class DocumentParser {
-	#stream: TokenStream = new TokenStream();
+	#stream: TokenStream = new TokenStream(String.empty);
 	#table: SymbolTable = new SymbolTable();
 
 	parse(code: string): SymbolTable {
-		const stream = this.#stream;
-		stream.load(code);
+		this.#stream = new TokenStream(code);
 		this.#table = new SymbolTable();
 		this.#readProgram();
 		return this.#table;
@@ -22,10 +22,10 @@ export class DocumentParser {
 	#readProgram(): void {
 		const stream = this.#stream;
 		while (!stream.atEOF()) {
-			if (this.#isFuncDecl()) {
-				this.#readFuncDecl();
-			} else if (this.#isVarDecl()) {
-				this.#readVarDecl(0, Number.MAX_SAFE_INTEGER);
+			if (this.#isFunctionDeclaration()) {
+				this.#readFunctionDeclaration();
+			} else if (this.#isVariableDeclaration()) {
+				this.#readVariableDeclaration(0, Number.MAX_SAFE_INTEGER);
 				stream.skipSemicolon();
 			} else {
 				stream.advance();
@@ -33,14 +33,14 @@ export class DocumentParser {
 		}
 	}
 
-	#isFuncDecl(): boolean {
+	#isFunctionDeclaration(): boolean {
 		const stream = this.#stream;
 		const current = stream.current();
 		const next = stream.peek(1);
 		return current.type === TokenType.Identifier && next.type === TokenType.Bracket && next.value === "(";
 	}
 
-	#isVarDecl(): boolean {
+	#isVariableDeclaration(): boolean {
 		const stream = this.#stream;
 		const current = stream.current();
 		const next = stream.peek(1);
@@ -48,7 +48,7 @@ export class DocumentParser {
 	}
 	//#endregion
 	//#region Function declaration
-	#readFuncDecl(): void {
+	#readFunctionDeclaration(): void {
 		const stream = this.#stream;
 		const nameToken = stream.advance();
 		const params = stream.readParams();
@@ -80,8 +80,8 @@ export class DocumentParser {
 
 	#readStatement(scopeStart: number, scopeEnd: number): void {
 		const stream = this.#stream;
-		if (this.#isVarDecl()) {
-			this.#readVarDecl(scopeStart, scopeEnd);
+		if (this.#isVariableDeclaration()) {
+			this.#readVariableDeclaration(scopeStart, scopeEnd);
 			stream.skipSemicolon();
 			return;
 		}
@@ -176,13 +176,13 @@ export class DocumentParser {
 			? stream.findMatchingBrace()
 			: scopeEnd;
 
-		if (name) this.#table.addVariable(new VariableDefinition(name, typeName, bodyToken.range.startLine, bodyEnd));
+		if (!String.isEmpty(name)) this.#table.addVariable(new VariableDefinition(name, typeName, bodyToken.range.startLine, bodyEnd));
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
 	//#endregion
 	//#region Declarations
-	#readVarDecl(scopeStart: number, scopeEnd: number): void {
+	#readVariableDeclaration(scopeStart: number, scopeEnd: number): void {
 		const stream = this.#stream;
 		const nameToken = stream.advance();
 		const typeName = stream.readType();

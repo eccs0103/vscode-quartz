@@ -17,9 +17,7 @@ export class Lexer {
 		{ regex: /^[;,]/, type: TokenType.Separator }
 	];
 
-	static #keywords: Set<string> = new Set([
-		"true", "false", "null", "if", "else", "while", "for", "in", "continue", "break", "return"
-	]);
+	static #keywords: Set<string> = new Set(["true", "false", "null", "if", "else", "while", "for", "in", "continue", "break", "return"]);
 
 	#code: string;
 	#cursor: number = 0;
@@ -78,7 +76,7 @@ export class Lexer {
 			}
 		}
 
-		tokens.push(new Token(TokenType.EOF, "", new TokenRange(this.#line, this.#column, this.#line, this.#column)));
+		tokens.push(new Token(TokenType.EndOfFile, "", new TokenRange(this.#line, this.#column, this.#line, this.#column)));
 		return tokens;
 	}
 }

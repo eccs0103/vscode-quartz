@@ -1,11 +1,12 @@
 "use strict";
 
-import * as fileSystem from "fs";
+import "adaptive-extender/node";
+import * as FileSystem from "fs";
 import * as path from "path";
-import { WorkspaceFolder } from "vscode-languageserver/node";
+import { WorkspaceFolder } from "vscode-languageserver/node.js";
 import { HeaderParser } from "./header-parser.js";
-import { DocumentParser } from "./doc-parser.js";
-import { TypeDefinition, FieldDefinition, FunctionDefinition, GenericType, MemberSet, MethodDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-defs.js";
+import { DocumentParser } from "./document-parser.js";
+import { TypeDefinition, FieldDefinition, FunctionDefinition, GenericType, MemberSet, MethodDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 
 //#region Type step
@@ -22,6 +23,9 @@ class TypeStep {
 
 //#region Symbol service
 export class SymbolService {
+	static #typeWordPattern: RegExp = /\b[A-Za-z_]\w*\b/g;
+	static #identifierCharPattern: RegExp = /[A-Za-z_0-9]/;
+
 	#runtimeTable: SymbolTable = new SymbolTable();
 
 	static toGeneric(typeName: string): GenericType {
@@ -40,8 +44,8 @@ export class SymbolService {
 				start = offset + 1;
 			}
 		}
-		if (inner.length > 0) typeArgs.push(inner.slice(start).trim());
-		return new GenericType(base, typeArgs.filter(Boolean));
+		if (!String.isEmpty(inner)) typeArgs.push(inner.slice(start).trim());
+		return new GenericType(base, typeArgs.filter(typeArg => !String.isEmpty(typeArg)));
 	}
 
 	static toSubstitution(typeParams: string[], typeArgs: string[]): Map<string, string> {
@@ -52,7 +56,13 @@ export class SymbolService {
 
 	static mapWith(typeName: string, substitution: Map<string, string>): string {
 		if (substitution.size === 0) return typeName;
-		return typeName.replace(/\b[A-Za-z_]\w*\b/g, word => substitution.get(word) ?? word);
+		const pattern = SymbolService.#typeWordPattern;
+		pattern.lastIndex = 0;
+		return typeName.replace(pattern, word => substitution.get(word) ?? word);
+	}
+
+	static #isIdentifierChar(value: string): boolean {
+		return SymbolService.#identifierCharPattern.test(value);
 	}
 
 	initialize(workspaceFolders: WorkspaceFolder[]): void {
@@ -62,9 +72,9 @@ export class SymbolService {
 			if (folderPath === null) continue;
 
 			const headerPath = path.join(folderPath, "runtime.header.qrz");
-			if (!fileSystem.existsSync(headerPath)) continue;
+			if (!FileSystem.existsSync(headerPath)) continue;
 
-			const code = fileSystem.readFileSync(headerPath, "utf8");
+			const code = FileSystem.readFileSync(headerPath, "utf8");
 			const headerTable = new HeaderParser().parse(code);
 			runtimeTable.merge(headerTable);
 		}
@@ -76,15 +86,15 @@ export class SymbolService {
 		return new DocumentParser().parse(code);
 	}
 
-	#typeOf(name: string, line: number, docTable: SymbolTable): string | null {
+	#typeOf(name: string, line: number, documentTable: SymbolTable): string | null {
 		const runtimeTable = this.#runtimeTable;
-		const variable = [...runtimeTable.getVariablesAt(line), ...docTable.getVariablesAt(line)].find(entry => entry.name === name);
+		const variable = [...runtimeTable.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === name);
 		if (variable !== undefined) return variable.typeName;
 
-		const overloads = runtimeTable.functions.get(name) ?? docTable.functions.get(name);
+		const overloads = runtimeTable.getFunctions(name) ?? documentTable.getFunctions(name);
 		if (overloads !== undefined && overloads.length > 0) return overloads[0].retType;
 
-		if (runtimeTable.classes.has(name)) return name;
+		if (runtimeTable.hasType(name)) return name;
 
 		return null;
 	}
@@ -100,7 +110,7 @@ export class SymbolService {
 
 		while (step !== undefined && !visited.has(step.name)) {
 			visited.add(step.name);
-			const typeDefinition = runtimeTable.classes.get(step.name);
+			const typeDefinition = runtimeTable.getType(step.name);
 			if (typeDefinition === undefined) break;
 			const { substitution } = step;
 
@@ -121,7 +131,7 @@ export class SymbolService {
 
 			if (typeDefinition.parent === undefined) break;
 			const { base, typeArgs } = SymbolService.toGeneric(typeDefinition.parent);
-			const baseType = runtimeTable.classes.get(base);
+			const baseType = runtimeTable.getType(base);
 			if (baseType === undefined) break;
 			const newSubstitution = SymbolService.toSubstitution(baseType.typeParams, typeArgs.map(word => SymbolService.mapWith(word, substitution)));
 			step = new TypeStep(base, newSubstitution);
@@ -130,7 +140,7 @@ export class SymbolService {
 		return new MemberSet(methods, fields);
 	}
 
-	typeAt(text: string, end: number, line: number, docTable: SymbolTable): string | null {
+	typeAt(text: string, end: number, line: number, documentTable: SymbolTable): string | null {
 		const runtimeTable = this.#runtimeTable;
 		let cursor = end - 1;
 		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
@@ -145,16 +155,16 @@ export class SymbolService {
 				cursor--;
 			}
 			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-			if (cursor < 0 || !/[A-Za-z_0-9]/.test(text[cursor])) return null;
+			if (cursor < 0 || !SymbolService.#isIdentifierChar(text[cursor])) return null;
 			const nameEnd = cursor;
-			while (cursor >= 0 && /[A-Za-z_0-9]/.test(text[cursor])) cursor--;
+			while (cursor >= 0 && SymbolService.#isIdentifierChar(text[cursor])) cursor--;
 			const name = text.slice(cursor + 1, nameEnd + 1);
 			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
 			if (cursor >= 0 && text[cursor] === ".") {
-				const receiverType = this.typeAt(text, cursor, line, docTable);
+				const receiverType = this.typeAt(text, cursor, line, documentTable);
 				if (receiverType === null) return null;
 				const { base, typeArgs } = SymbolService.toGeneric(receiverType);
-				const typeDefinition = runtimeTable.classes.get(base);
+				const typeDefinition = runtimeTable.getType(base);
 				if (typeDefinition === undefined) return null;
 				const substitution = SymbolService.toSubstitution(typeDefinition.typeParams, typeArgs);
 				const { methods } = this.getAllMembers(base);
@@ -162,7 +172,7 @@ export class SymbolService {
 				if (method === undefined) return null;
 				return SymbolService.mapWith(method.retType, substitution);
 			}
-			return this.#typeOf(name, line, docTable);
+			return this.#typeOf(name, line, documentTable);
 		}
 
 		if (text[cursor] === "]") {
@@ -173,10 +183,10 @@ export class SymbolService {
 				else if (text[cursor] === "[") depth--;
 				cursor--;
 			}
-			const indexeeType = this.typeAt(text, cursor + 1, line, docTable);
+			const indexeeType = this.typeAt(text, cursor + 1, line, documentTable);
 			if (indexeeType === null) return null;
 			const { base, typeArgs } = SymbolService.toGeneric(indexeeType);
-			const typeDefinition = runtimeTable.classes.get(base);
+			const typeDefinition = runtimeTable.getType(base);
 			if (typeDefinition === undefined) return null;
 			const substitution = SymbolService.toSubstitution(typeDefinition.typeParams, typeArgs);
 			const { methods } = this.getAllMembers(base);
@@ -185,16 +195,16 @@ export class SymbolService {
 			return SymbolService.mapWith(indexOp.retType, substitution);
 		}
 
-		if (/[A-Za-z_0-9]/.test(text[cursor])) {
+		if (SymbolService.#isIdentifierChar(text[cursor])) {
 			const nameEnd = cursor;
-			while (cursor >= 0 && /[A-Za-z_0-9]/.test(text[cursor])) cursor--;
+			while (cursor >= 0 && SymbolService.#isIdentifierChar(text[cursor])) cursor--;
 			const name = text.slice(cursor + 1, nameEnd + 1);
 			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
 			if (cursor >= 0 && text[cursor] === ".") {
-				const receiverType = this.typeAt(text, cursor, line, docTable);
+				const receiverType = this.typeAt(text, cursor, line, documentTable);
 				if (receiverType === null) return null;
 				const { base, typeArgs } = SymbolService.toGeneric(receiverType);
-				const typeDefinition = runtimeTable.classes.get(base);
+				const typeDefinition = runtimeTable.getType(base);
 				if (typeDefinition === undefined) return null;
 				const substitution = SymbolService.toSubstitution(typeDefinition.typeParams, typeArgs);
 				const { fields } = this.getAllMembers(base);
@@ -202,7 +212,7 @@ export class SymbolService {
 				if (field === undefined) return null;
 				return SymbolService.mapWith(field.typeName, substitution);
 			}
-			return this.#typeOf(name, line, docTable);
+			return this.#typeOf(name, line, documentTable);
 		}
 
 		return null;
@@ -210,11 +220,11 @@ export class SymbolService {
 
 	#addWorkspaceGlobals(): void {
 		const runtimeTable = this.#runtimeTable;
-		const workspace = runtimeTable.classes.get("workspace");
+		const workspace = runtimeTable.getType("workspace");
 		if (workspace === undefined) return;
 
 		for (const { name, params, retType } of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(name, params, retType, 0, Number.MAX_SAFE_INTEGER));
-		for (const { name, typeName } of workspace.fields) if (!runtimeTable.variables.some(variable => variable.name === name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, 0, Number.MAX_SAFE_INTEGER));
+		for (const { name, typeName } of workspace.fields) if (!runtimeTable.hasVariable(name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, 0, Number.MAX_SAFE_INTEGER));
 	}
 
 	#pathFrom(uri: string): string | null {
@@ -233,7 +243,7 @@ export class SymbolService {
 	}
 
 	getType(name: string): TypeDefinition | undefined {
-		return this.#runtimeTable.classes.get(name);
+		return this.#runtimeTable.getType(name);
 	}
 }
 //#endregion

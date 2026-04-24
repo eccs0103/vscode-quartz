@@ -1,13 +1,14 @@
 "use strict";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
+import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 import { NamingConventions } from "../models/naming-conventions.js";
 
 //#region Validation service
 export class ValidationService {
 	static #identifierPattern: RegExp = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
+	static #leadingUpperPattern: RegExp = /^[A-Z]/;
 
 	validate(textDocument: TextDocument): Diagnostic[] {
 		const text = textDocument.getText();
@@ -22,7 +23,7 @@ export class ValidationService {
 
 			if (LanguageKeywords.has(identifier)) continue;
 
-			const isUpper = /^[A-Z]/.test(identifier);
+			const isUpper = ValidationService.#leadingUpperPattern.test(identifier);
 			const isInvalid = isUpper ? !NamingConventions.isPascalCase(identifier) : !NamingConventions.isSnakeCase(identifier);
 			if (!isInvalid) continue;
 

@@ -1,9 +1,13 @@
 "use strict";
 
-//#region NamingConventions
+//#region Naming conventions
 export class NamingConventions {
 	static #pascal: RegExp = /^[A-Z][a-zA-Z0-9]*$/;
 	static #snake: RegExp = /^[a-z_][a-z0-9_]*$/;
+	static #wordSplitPattern: RegExp = /[_\s]+/;
+	static #upperPattern: RegExp = /([A-Z])/g;
+	static #leadingUnderscorePattern: RegExp = /^_/;
+	static #snakeCleanupPattern: RegExp = /[_\s]+/g;
 
 	static isPascalCase(name: string): boolean {
 		return NamingConventions.#pascal.test(name);
@@ -14,11 +18,15 @@ export class NamingConventions {
 	}
 
 	static toPascalCase(value: string): string {
-		return value.split(/[_\s]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join("");
+		return value.split(NamingConventions.#wordSplitPattern).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join("");
 	}
 
 	static toSnakeCase(value: string): string {
-		return value.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_/, "").replace(/[_\s]+/g, "_");
+		const upperPattern = NamingConventions.#upperPattern;
+		const cleanupPattern = NamingConventions.#snakeCleanupPattern;
+		upperPattern.lastIndex = 0;
+		cleanupPattern.lastIndex = 0;
+		return value.replace(upperPattern, "_$1").toLowerCase().replace(NamingConventions.#leadingUnderscorePattern, "").replace(cleanupPattern, "_");
 	}
 }
 //#endregion

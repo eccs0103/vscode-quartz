@@ -1,7 +1,7 @@
 "use strict";
 
 import { Controller } from "adaptive-extender/node";
-import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange } from "vscode-languageserver/node";
+import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange } from "vscode-languageserver/node.js";
 import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";
 import { SymbolService } from "../services/symbol-service.js";
 import { ValidationService } from "../services/validation-service.js";
@@ -37,7 +37,7 @@ class LanguageServer extends Controller {
 		const connection = this.#connection;
 		const documents = this.#documents;
 		connection.onInitialize(params => this.#onInitialize(params));
-		connection.onInitialized(_ => this.#onInitialized());
+		connection.onInitialized(() => this.#onInitialized());
 		documents.onDidOpen(event => this.#sendDiagnostics(event.document));
 		documents.onDidChangeContent(event => this.#sendDiagnostics(event.document));
 		connection.onCompletion(params => this.#onCompletion(params));

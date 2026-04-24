@@ -10,7 +10,7 @@ export enum TokenType {
 	Operator = "Operator",
 	Bracket = "Bracket",
 	Separator = "Separator",
-	EOF = "EOF"
+	EndOfFile = "EndOfFile"
 }
 
 export class TokenRange {

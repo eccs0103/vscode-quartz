@@ -1,17 +1,18 @@
 "use strict";
 
+import "adaptive-extender/node";
 import { TokenType } from "../models/token.js";
-import { TypeDefinition, FieldDefinition, MethodDefinition, ParameterDefinition } from "../models/symbol-defs.js";
+import { TypeDefinition, FieldDefinition, MethodDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
 
 //#region Header parser
 export class HeaderParser {
-	#stream: TokenStream = new TokenStream();
+	#stream: TokenStream = new TokenStream(String.empty);
 
 	parse(code: string): SymbolTable {
+		this.#stream = new TokenStream(code);
 		const stream = this.#stream;
-		stream.load(code);
 		const table = new SymbolTable();
 
 		while (!stream.atEOF()) {
@@ -20,7 +21,7 @@ export class HeaderParser {
 				continue;
 			}
 			const entry = this.#readClass();
-			if (entry !== null) table.addClass(entry);
+			if (entry !== null) table.addType(entry);
 		}
 
 		return table;

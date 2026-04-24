@@ -1,14 +1,15 @@
 "use strict";
 
-import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node";
+import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
-import { FunctionDefinition } from "../models/symbol-defs.js";
 import { SymbolTable } from "./symbol-table.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 
 //#region Completion service
 export class CompletionService {
+	static #memberAccessPattern: RegExp = /\.([A-Za-z_]\w*)?$/;
+
 	#symbolService: SymbolService;
 
 	constructor(symbolService: SymbolService) {
@@ -21,17 +22,17 @@ export class CompletionService {
 		const offset = document.offsetAt(position);
 		const before = text.slice(0, offset);
 
-		const docTable = symbolService.parse(text);
+		const documentTable = symbolService.parse(text);
 
-		const dotMatch = /\.([A-Za-z_]\w*)?$/.exec(before);
+		const dotMatch = CompletionService.#memberAccessPattern.exec(before);
 		if (dotMatch !== null) {
 			const dotIndex = before.length - dotMatch[0].length;
-			const receiverType = symbolService.typeAt(before, dotIndex, position.line, docTable);
+			const receiverType = symbolService.typeAt(before, dotIndex, position.line, documentTable);
 			if (receiverType !== null) return this.#getMembersOf(receiverType);
 			return [];
 		}
 
-		return this.#getContextItems(position, docTable);
+		return this.#getContextItems(position, documentTable);
 	}
 
 	#getMembersOf(rawType: string): CompletionItem[] {
@@ -65,7 +66,7 @@ export class CompletionService {
 		return items;
 	}
 
-	#getContextItems(position: Position, docTable: SymbolTable): CompletionItem[] {
+	#getContextItems(position: Position, documentTable: SymbolTable): CompletionItem[] {
 		const symbolService = this.#symbolService;
 		const runtime = symbolService.runtimeTable();
 		const items: CompletionItem[] = [];
@@ -73,22 +74,22 @@ export class CompletionService {
 
 		for (const keyword of LanguageKeywords.values()) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
 
-		for (const name of runtime.classes.keys()) {
+		for (const name of runtime.typeNames()) {
 			if (name === "workspace") continue;
 			this.#addItem(items, added, name, CompletionItemKind.Class, `class ${name}`);
 		}
 
-		this.#addFuncItems(items, added, runtime.functions);
-		this.#addFuncItems(items, added, docTable.functions);
+		this.#addFunctionItems(items, added, runtime);
+		this.#addFunctionItems(items, added, documentTable);
 
 		for (const { name, typeName } of runtime.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
-		for (const { name, typeName } of docTable.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName } of documentTable.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 
 		return items;
 	}
 
-	#addFuncItems(items: CompletionItem[], added: Set<string>, funcs: Map<string, FunctionDefinition[]>): void {
-		for (const [name, overloads] of funcs) {
+	#addFunctionItems(items: CompletionItem[], added: Set<string>, table: SymbolTable): void {
+		for (const [name, overloads] of table.functionEntries()) {
 			const signatures = overloads.map(overload => `${name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`);
 			this.#addItem(items, added, name, CompletionItemKind.Function, signatures[0], signatures.join("\n"));
 		}

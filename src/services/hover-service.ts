@@ -1,6 +1,6 @@
 "use strict";
 
-import { Hover, MarkupKind, Position } from "vscode-languageserver/node";
+import { Hover, MarkupKind, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
@@ -36,15 +36,15 @@ export class HoverService {
 		if (found === null) return null;
 
 		const { word, start } = found;
-		const docTable = symbolService.parse(text);
+		const documentTable = symbolService.parse(text);
 
 		if (start > 0 && text[start - 1] === ".") {
-			const receiverType = symbolService.typeAt(text, start - 1, position.line, docTable);
+			const receiverType = symbolService.typeAt(text, start - 1, position.line, documentTable);
 			if (receiverType === null) return null;
 			return this.#makeHoverForMember(word, receiverType);
 		}
 
-		return this.#makeHover(word, position.line, docTable);
+		return this.#makeHover(word, position.line, documentTable);
 	}
 
 	#makeHoverForMember(memberName: string, typeName: string): Hover | null {
@@ -67,9 +67,9 @@ export class HoverService {
 		return this.#md(`\`\`\`quartz\n${memberName} ${SymbolService.mapWith(field.typeName, substitution)}\n\`\`\``);
 	}
 
-	#makeHover(word: string, line: number, docTable: SymbolTable): Hover | null {
+	#makeHover(word: string, line: number, documentTable: SymbolTable): Hover | null {
 		const symbolService = this.#symbolService;
-		const typeDefinition = symbolService.getType(word) ?? docTable.classes.get(word);
+		const typeDefinition = symbolService.getType(word) ?? documentTable.getType(word);
 		if (typeDefinition !== undefined) {
 			const memberLines: string[] = [];
 			for (const { name, typeName } of typeDefinition.fields) memberLines.push(`  ${name} ${typeName}`);
@@ -84,13 +84,13 @@ export class HoverService {
 		}
 
 		const runtime = symbolService.runtimeTable();
-		const allOverloads = [...(runtime.functions.get(word) ?? []), ...(docTable.functions.get(word) ?? [])];
+		const allOverloads = [...(runtime.getFunctions(word) ?? []), ...(documentTable.getFunctions(word) ?? [])];
 		if (allOverloads.length > 0) {
 			const signatures = allOverloads.map(overload => `${overload.name}(${overload.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${overload.retType}`).join("\n");
 			return this.#md(`\`\`\`quartz\n${signatures}\n\`\`\``);
 		}
 
-		const variable = [...runtime.getVariablesAt(line), ...docTable.getVariablesAt(line)].find(entry => entry.name === word);
+		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === word);
 		if (variable !== undefined) return this.#md(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
 
 		const documentation = HoverData.get(word);
