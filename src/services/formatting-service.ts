@@ -6,18 +6,16 @@ import { TextEdit, Range, Position } from "vscode-languageserver/node.js";
 
 //#region Formatting service
 export class FormattingService {
-		static #patternOpenBrace: RegExp = /\{/g;
-		static #patternCloseBrace: RegExp = /\}/g;
-		static #patternIndent: RegExp = /^\s*/;
-		static #patternControlKeyword: RegExp = /\b(if|else|while|for|in)$/;
-		static #patternOperator: RegExp = /[:=!&|<>]/;
-		static #patternUnaryContext: RegExp = /[\s(,:]$/;
-		static #patternGenericTail: RegExp = /[A-Z][a-zA-Z0-9_]*$/;
-		static #patternGenericNextType: RegExp = /^[A-Z]/;
-		static #patternOperandBefore: RegExp = /[a-zA-Z0-9_)>]/;
-		static #patternOperandAfter: RegExp = /[a-zA-Z0-9_\"(<]/;
-		static #patternSpaces: RegExp = /\s+/g;
-		static #patternSpaceBeforePunctuation: RegExp = /\s+([;,)])/g;
+	static #patternIndent: RegExp = /^\s*/;
+	static #patternControlKeyword: RegExp = /\b(if|else|while|for|in)$/;
+	static #patternOperator: RegExp = /[:=!&|<>]/;
+	static #patternUnaryContext: RegExp = /[\s(,:]$/;
+	static #patternGenericTail: RegExp = /[A-Z][a-zA-Z0-9_]*$/;
+	static #patternGenericNextType: RegExp = /^[A-Z]/;
+	static #patternOperandBefore: RegExp = /[a-zA-Z0-9_)>]/;
+	static #patternOperandAfter: RegExp = /[a-zA-Z0-9_"(<]/;
+	static #patternSpaces: RegExp = /\s+/g;
+	static #patternSpaceBeforePunctuation: RegExp = /\s+([;,)])/g;
 
 	getEdits(document: TextDocument): TextEdit[] {
 		const text = document.getText();
@@ -34,31 +32,21 @@ export class FormattingService {
 		let level = 0;
 		const tab = "\t";
 
-		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-			const raw = lines[lineIndex];
+		for (const raw of lines) {
 			if (String.isWhitespace(raw)) {
 				formatted.push(String.empty);
 				continue;
 			}
-			let line = raw.trim();
-
+			const line = raw.trim();
 			const isComment = line.startsWith("//") || line.startsWith("/*") || line.startsWith("*");
-
-			if (line.startsWith("}")) level = Math.max(0, level - 1);
-
+			if (isComment) {
+				formatted.push(tab.repeat(level) + line);
+				continue;
+			}
+			const { opens, closes, leadingCloses } = this.#countBrackets(line);
+			level = Math.max(0, level - leadingCloses);
 			formatted.push(tab.repeat(level) + line);
-
-			if (line.endsWith("{") && !isComment) {
-				level++;
-			} else if (line.includes("{") && !line.includes("}") && !isComment) {
-				level++;
-			}
-
-			if (line.includes("}") && line.includes("{")) {
-				const openCount = this.#countMatches(line, FormattingService.#patternOpenBrace);
-				const endCount = this.#countMatches(line, FormattingService.#patternCloseBrace);
-				if (endCount > openCount) level = Math.max(0, level - (endCount - openCount));
-			}
+			level = Math.max(0, level + opens - (closes - leadingCloses));
 		}
 
 		return formatted.map(line => {
@@ -159,9 +147,26 @@ export class FormattingService {
 		return indent + result;
 	}
 
-	#countMatches(text: string, pattern: RegExp): number {
-		pattern.lastIndex = 0;
-		return (text.match(pattern) ?? []).length;
+	#countBrackets(line: string): { opens: number; closes: number; leadingCloses: number; } {
+		let opens = 0;
+		let closes = 0;
+		let leadingCloses = 0;
+		let leadingDone = false;
+		let stringQuote = String.empty;
+		for (let offset = 0; offset < line.length; offset++) {
+			const char = line[offset];
+			if (!String.isEmpty(stringQuote)) {
+				if (char === '\\') { offset++; continue; }
+				if (char === stringQuote) stringQuote = String.empty;
+				continue;
+			}
+			if (char === '"' || char === "'") { stringQuote = char; leadingDone = true; continue; }
+			if (char === '/' && offset + 1 < line.length && line[offset + 1] === '/') break;
+			if (char === '{' || char === '[') { opens++; leadingDone = true; }
+			else if (char === '}' || char === ']') { closes++; if (!leadingDone) leadingCloses++; }
+			else if (char !== ' ' && char !== '\t') { leadingDone = true; }
+		}
+		return { opens, closes, leadingCloses };
 	}
 }
 //#endregion

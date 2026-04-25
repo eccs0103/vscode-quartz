@@ -53,7 +53,8 @@ export class HoverService {
 			const argCount = this.#argCountAt(text, wordEnd);
 			const resolved = matching[this.#pickOverloadIndex(matching.map(method => method.params.length), argCount)];
 			const signature = `${typeName}.${memberName}(${resolved.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
-			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\``);
+			const overloadNote = matching.length > 1 ? `\n_+${matching.length - 1} ${matching.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
+			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
 		}
 
 		const field = fields.find(entry => entry.name === memberName);
@@ -84,7 +85,8 @@ export class HoverService {
 			const resolved = allOverloads[this.#pickOverloadIndex(allOverloads.map(overload => overload.params.length), argCount)];
 			const prefix = resolved.ownerType !== undefined ? `${resolved.ownerType}.` : '';
 			const signature = `${prefix}${resolved.name}(${resolved.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.retType}`;
-			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\``);
+			const overloadNote = allOverloads.length > 1 ? `\n_+${allOverloads.length - 1} ${allOverloads.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
+			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
 		}
 
 		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === word);
