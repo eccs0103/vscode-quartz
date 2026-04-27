@@ -17,11 +17,13 @@ export class MethodDefinition {
 	name: string;
 	params: ParameterDefinition[];
 	retType: string;
+	declType: string | undefined;
 
-	constructor(name: string, params: ParameterDefinition[], retType: string) {
+	constructor(name: string, params: ParameterDefinition[], retType: string, declType?: string) {
 		this.name = name;
 		this.params = params;
 		this.retType = retType;
+		this.declType = declType;
 	}
 }
 

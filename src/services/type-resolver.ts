@@ -74,7 +74,9 @@ export class TypeResolver {
 				const key = `${name}/${params.length}`;
 				if (seenMethod.has(key)) continue;
 				seenMethod.add(key);
-				methods.push(substitution.size === 0 ? method : new MethodDefinition(name, params.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))), TypeResolver.mapWith(retType, substitution)));
+				const mappedParams = substitution.size === 0 ? params : params.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution)));
+				const mappedRet = substitution.size === 0 ? retType : TypeResolver.mapWith(retType, substitution);
+				methods.push(new MethodDefinition(name, mappedParams, mappedRet, step.name));
 			}
 
 			for (const field of typeDefinition.fields) {
@@ -129,6 +131,8 @@ export class TypeResolver {
 				if (method === undefined) return null;
 				return TypeResolver.mapWith(method.retType, substitution);
 			}
+			const fnOverloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
+			if (fnOverloads !== undefined && fnOverloads.length > 0) return fnOverloads[0].retType;
 			return this.#typeOf(name, line, runtimeTable, docTable);
 		}
 
@@ -203,7 +207,7 @@ export class TypeResolver {
 		const variable = [...runtimeTable.getVariablesAt(line), ...docTable.getVariablesAt(line)].find(entry => entry.name === name);
 		if (variable !== undefined) return variable.typeName;
 		const overloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
-		if (overloads !== undefined && overloads.length > 0) return overloads[0].retType;
+		if (overloads !== undefined && overloads.length > 0) return "Function";
 		const typeDefinition = runtimeTable.getType(name);
 		if (typeDefinition !== undefined && !typeDefinition.isTemplate) return name;
 		return null;

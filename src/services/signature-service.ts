@@ -56,12 +56,13 @@ export class SignatureService {
 			const receiverType = symbolService.typeAt(text, dotCursor, position.line, documentTable);
 			if (receiverType === null) return null;
 			const { base, typeArgs } = TypeResolver.toGeneric(receiverType);
-			ownerType = receiverType;
 			const typeDefinition = symbolService.getType(base);
 			const substitution = TypeResolver.toSubstitution(typeDefinition?.typeParams ?? [], typeArgs);
 			const { methods } = symbolService.getAllMembers(base);
 			const matching = methods.filter(method => method.name === name && !method.name.startsWith('['));
 			if (matching.length === 0) return null;
+			const declType = matching[0].declType ?? base;
+			ownerType = (declType === base) ? receiverType : declType;
 			overloads = matching.map(method => ({
 				name: method.name,
 				params: method.params.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))),

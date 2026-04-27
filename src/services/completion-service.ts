@@ -57,7 +57,8 @@ export class CompletionService {
 
 		for (const [label, overloads] of methodOverloads) {
 			const first = overloads[0];
-			const detail = `${rawType}.${label}(${first.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.retType, substitution)}`;
+			const prefix = (first.declType === base) ? rawType : (first.declType ?? base);
+			const detail = `${prefix}.${label}(${first.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.retType, substitution)}`;
 			items.push({ label, kind: CompletionItemKind.Method, detail });
 		}
 

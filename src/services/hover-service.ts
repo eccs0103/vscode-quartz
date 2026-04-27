@@ -52,7 +52,8 @@ export class HoverService {
 		if (matching.length > 0) {
 			const argCount = this.#argCountAt(text, wordEnd);
 			const resolved = matching[this.#pickOverloadIndex(matching.map(method => method.params.length), argCount)];
-			const signature = `${typeName}.${memberName}(${resolved.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
+			const prefix = (resolved.declType === base) ? typeName : (resolved.declType ?? base);
+			const signature = `${prefix}.${memberName}(${resolved.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
 			const overloadNote = matching.length > 1 ? `\n_+${matching.length - 1} ${matching.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
 			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
 		}
