@@ -6,6 +6,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { ParameterDefinition } from "../models/symbol-definitions.js";
 import { TypeResolver } from "./type-resolver.js";
+import { OverloadPicker } from "./overload-picker.js";
 
 //#region Call context
 class CallContext {
@@ -76,7 +77,7 @@ export class SignatureService {
 			overloads = rawOverloads;
 		}
 
-		const activeSignature = this.#pickActiveSignature(overloads.map(overload => overload.params.length), activeParameter);
+		const activeSignature = OverloadPicker.pickActive(overloads.map(overload => overload.params.length), activeParameter);
 		const signatures = overloads.map(overload => this.#makeSignature(overload, ownerType));
 		return { signatures, activeSignature, activeParameter };
 	}
@@ -102,37 +103,13 @@ export class SignatureService {
 				while (nameCursor >= 0 && SignatureService.#patternIdentChar.test(text[nameCursor])) nameCursor--;
 				const name = text.slice(nameCursor + 1, nameEnd + 1);
 				if (name[0] >= '0' && name[0] <= '9') return null;
-				const activeParameter = this.#countActiveParam(text, openParenOffset + 1, offset);
+				const activeParameter = OverloadPicker.argIndexAt(text, openParenOffset + 1, offset);
 				return new CallContext(name, nameEnd, activeParameter);
 			}
 			cursor--;
 		}
 
 		return null;
-	}
-
-	#countActiveParam(text: string, start: number, end: number): number {
-		let depth = 0;
-		let commas = 0;
-		let cursor = start;
-		while (cursor < end) {
-			const char = text[cursor];
-			if (char === '"' || char === "'") {
-				const quoteChar = char; cursor++;
-				while (cursor < end && text[cursor] !== quoteChar) { if (text[cursor] === '\\') cursor++; cursor++; }
-			} else if (char === '(' || char === '[') { depth++; }
-			else if (char === ')' || char === ']') { depth--; }
-			else if (char === ',' && depth === 0) { commas++; }
-			cursor++;
-		}
-		return commas;
-	}
-
-	#pickActiveSignature(paramCounts: number[], activeParameter: number): number {
-		for (let index = 0; index < paramCounts.length; index++) {
-			if (paramCounts[index] > activeParameter) return index;
-		}
-		return paramCounts.length - 1;
 	}
 
 	#makeSignature(callable: { name: string; params: ParameterDefinition[]; retType: string }, ownerType: string | undefined): SignatureInformation {

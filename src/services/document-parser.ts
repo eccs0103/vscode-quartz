@@ -5,14 +5,17 @@ import { TokenType } from "../models/token.js";
 import { FunctionDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
+import { TypeReader } from "./type-reader.js";
 
 //#region Document parser
 export class DocumentParser {
 	#stream!: TokenStream;
+	#reader!: TypeReader;
 	#table: SymbolTable = new SymbolTable();
 
 	parse(code: string): SymbolTable {
 		this.#stream = new TokenStream(code);
+		this.#reader = new TypeReader(this.#stream);
 		this.#readProgram();
 		return this.#table;
 	}
@@ -49,10 +52,11 @@ export class DocumentParser {
 	//#region Function declaration
 	#readFunctionDeclaration(): void {
 		const stream = this.#stream;
+		const reader = this.#reader;
 		const nameToken = stream.advance();
 		if (nameToken === null) return;
-		const params = stream.readParams();
-		const retType = stream.readType();
+		const params = reader.readParams();
+		const retType = reader.readType();
 
 		const bodyStart = stream.current()?.range.startLine ?? 0;
 		const bodyEnd = stream.findMatchingBrace();
@@ -155,7 +159,7 @@ export class DocumentParser {
 		if (nameToken !== null && nameToken.type === TokenType.Identifier) {
 			name = nameToken.value;
 			stream.advance();
-			typeName = stream.readType();
+			typeName = this.#reader.readType();
 			const inKeyword = stream.current();
 			if (inKeyword !== null && inKeyword.type === TokenType.Keyword && inKeyword.value === "in") stream.advance();
 		}
@@ -187,9 +191,10 @@ export class DocumentParser {
 	//#region Declarations
 	#readVariableDeclaration(scopeStart: number, scopeEnd: number): void {
 		const stream = this.#stream;
+		const reader = this.#reader;
 		const nameToken = stream.advance();
 		if (nameToken === null) return;
-		const typeName = stream.readType();
+		const typeName = reader.readType();
 
 		const colon = stream.current();
 		if (colon !== null && colon.type === TokenType.Operator && colon.value === ":") {

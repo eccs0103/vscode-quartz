@@ -7,6 +7,7 @@ import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
 import { HoverData } from "../models/hover-data.js";
+import { OverloadPicker } from "./overload-picker.js";
 
 //#region Hover service
 export class HoverService {
@@ -50,8 +51,8 @@ export class HoverService {
 
 		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
 		if (matching.length > 0) {
-			const argCount = this.#argCountAt(text, wordEnd);
-			const resolved = matching[this.#pickOverloadIndex(matching.map(method => method.params.length), argCount)];
+			const argCount = OverloadPicker.argsAt(text, wordEnd);
+			const resolved = matching[OverloadPicker.pickFor(matching.map(method => method.params.length), argCount)];
 			const prefix = (resolved.declType === base) ? typeName : (resolved.declType ?? base);
 			const signature = `${prefix}.${memberName}(${resolved.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
 			const overloadNote = matching.length > 1 ? `\n_+${matching.length - 1} ${matching.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
@@ -82,8 +83,8 @@ export class HoverService {
 		const runtime = symbolService.runtimeTable();
 		const allOverloads = [...(runtime.getFunctions(word) ?? []), ...(documentTable.getFunctions(word) ?? [])];
 		if (allOverloads.length > 0) {
-			const argCount = this.#argCountAt(text, wordEnd);
-			const resolved = allOverloads[this.#pickOverloadIndex(allOverloads.map(overload => overload.params.length), argCount)];
+			const argCount = OverloadPicker.argsAt(text, wordEnd);
+			const resolved = allOverloads[OverloadPicker.pickFor(allOverloads.map(overload => overload.params.length), argCount)];
 			const prefix = resolved.ownerType !== undefined ? `${resolved.ownerType}.` : '';
 			const signature = `${prefix}${resolved.name}(${resolved.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.retType}`;
 			const overloadNote = allOverloads.length > 1 ? `\n_+${allOverloads.length - 1} ${allOverloads.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
@@ -97,40 +98,6 @@ export class HoverService {
 		if (documentation !== undefined) return this.#md(documentation);
 
 		return null;
-	}
-
-	#argCountAt(text: string, scanStart: number): number {
-		let offset = scanStart;
-		while (offset < text.length && (text[offset] === ' ' || text[offset] === '\t')) offset++;
-		if (offset >= text.length || text[offset] !== '(') return -1;
-		offset++;
-		let depth = 0;
-		let commas = 0;
-		let hasContent = false;
-		while (offset < text.length) {
-			const char = text[offset];
-			if (char === '"' || char === "'") {
-				const quoteChar = char; offset++;
-				while (offset < text.length && text[offset] !== quoteChar) { if (text[offset] === '\\') offset++; offset++; }
-				hasContent = true;
-			} else if (char === '(' || char === '[') { depth++; hasContent = true; }
-			else if (char === ')' || char === ']') { if (depth === 0) break; depth--; hasContent = true; }
-			else if (char === ',' && depth === 0) { commas++; hasContent = true; }
-			else if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') { hasContent = true; }
-			offset++;
-		}
-		return hasContent ? commas + 1 : 0;
-	}
-
-	#pickOverloadIndex(paramCounts: number[], argCount: number): number {
-		if (argCount < 0) return 0;
-		for (let index = 0; index < paramCounts.length; index++) {
-			if (paramCounts[index] === argCount) return index;
-		}
-		for (let index = 0; index < paramCounts.length; index++) {
-			if (paramCounts[index] > argCount) return index;
-		}
-		return paramCounts.length - 1;
 	}
 
 	#md(value: string): Hover {

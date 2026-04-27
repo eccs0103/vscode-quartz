@@ -5,13 +5,16 @@ import { TokenType } from "../models/token.js";
 import { TypeDefinition, FieldDefinition, MethodDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
+import { TypeReader } from "./type-reader.js";
 
 //#region Header parser
 export class HeaderParser {
 	#stream!: TokenStream;
+	#reader!: TypeReader;
 
 	parse(code: string): SymbolTable {
 		this.#stream = new TokenStream(code);
+		this.#reader = new TypeReader(this.#stream);
 		const stream = this.#stream;
 		const table = new SymbolTable();
 
@@ -54,7 +57,7 @@ export class HeaderParser {
 		const fromToken = stream.current();
 		if (fromToken !== null && fromToken.type === TokenType.Identifier && fromToken.value === "from") {
 			stream.advance();
-			parent = stream.readType();
+			parent = this.#reader.readType();
 		}
 
 		while (true) {
@@ -96,8 +99,8 @@ export class HeaderParser {
 			name += "]";
 			const afterBracket = stream.current();
 			if (afterBracket !== null && afterBracket.type === TokenType.Bracket) stream.advance();
-			const params = stream.readParams();
-			const retType = stream.readType();
+			const params = this.#reader.readParams();
+			const retType = this.#reader.readType();
 			stream.skipSemicolon();
 			methods.push(new MethodDefinition(name, params, retType));
 			return;
@@ -113,12 +116,12 @@ export class HeaderParser {
 
 		const next = stream.current();
 		if (next !== null && next.type === TokenType.Bracket && next.value === "(") {
-			const params = stream.readParams();
-			const retType = stream.readType();
+			const params = this.#reader.readParams();
+			const retType = this.#reader.readType();
 			stream.skipSemicolon();
 			methods.push(new MethodDefinition(name, params, retType));
 		} else {
-			const typeName = stream.readType();
+			const typeName = this.#reader.readType();
 			stream.skipSemicolon();
 			fields.push(new FieldDefinition(name, typeName));
 		}
