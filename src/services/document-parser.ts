@@ -46,7 +46,7 @@ export class DocumentParser {
 		const stream = this.#stream;
 		const current = stream.current();
 		const next = stream.peek(1);
-		return current !== null && next !== null && current.type === TokenType.Identifier && next.type === TokenType.Identifier;
+		return current !== null && next !== null && current.type === TokenType.Identifier && next.type === TokenType.Identifier && current.range.startLine === next.range.startLine;
 	}
 	//#endregion
 	//#region Function declaration

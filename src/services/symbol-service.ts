@@ -55,7 +55,7 @@ export class SymbolService {
 		const workspace = runtimeTable.getType("Workspace");
 		if (workspace === undefined) return;
 		for (const { name, params, retType } of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(name, params, retType, 0, Number.MAX_SAFE_INTEGER, "@Workspace"));
-		for (const { name, typeName } of workspace.fields) if (!runtimeTable.hasVariable(name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, 0, Number.MAX_SAFE_INTEGER));
+		for (const { name, typeName } of workspace.fields) if (!runtimeTable.hasVariable(name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, 0, Number.MAX_SAFE_INTEGER, "@Workspace"));
 	}
 
 	#pathFrom(uri: string): string | null {

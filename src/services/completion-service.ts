@@ -83,7 +83,7 @@ export class CompletionService {
 		this.#addFunctionItems(items, added, runtime);
 		this.#addFunctionItems(items, added, documentTable);
 
-		for (const { name, typeName } of runtime.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName, ownerType } of runtime.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, ownerType !== undefined ? `${ownerType}.${name} ${typeName}` : typeName);
 		for (const { name, typeName } of documentTable.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 
 		return items;

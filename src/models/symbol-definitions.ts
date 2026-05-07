@@ -80,12 +80,14 @@ export class VariableDefinition {
 	typeName: string;
 	startLine: number;
 	endLine: number;
+	ownerType: string | undefined;
 
-	constructor(name: string, typeName: string, startLine: number, endLine: number) {
+	constructor(name: string, typeName: string, startLine: number, endLine: number, ownerType?: string) {
 		this.name = name;
 		this.typeName = typeName;
 		this.startLine = startLine;
 		this.endLine = endLine;
+		this.ownerType = ownerType;
 	}
 }
 

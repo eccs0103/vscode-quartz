@@ -5,7 +5,7 @@ import "adaptive-extender/node";
 //#region Language keywords
 export class LanguageKeywords {
 	static #all: Set<string> = new Set([
-		"if", "else", "while", "repeat", "for", "in", "break", "continue",
+		"if", "else", "while", "for", "in", "break", "continue",
 		"return", "use", "from", "this", "true", "false", "null",
 		"to", "as", "is"
 	]);
