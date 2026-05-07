@@ -61,7 +61,7 @@ export class DocumentParser {
 		const bodyStart = stream.current()?.range.startLine ?? 0;
 		const bodyEnd = stream.findMatchingBrace();
 
-		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, nameToken.range.startLine, bodyEnd));
+		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, nameToken.range.startLine, bodyEnd, "@Workspace"));
 
 		const bodyOpen = stream.current();
 		if (bodyOpen === null || !(bodyOpen.type === TokenType.Bracket && bodyOpen.value === "{")) return;

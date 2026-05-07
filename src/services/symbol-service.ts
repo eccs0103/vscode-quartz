@@ -21,7 +21,7 @@ export class SymbolService {
 			const folderPath = this.#pathFrom(folder.uri);
 			if (folderPath === null) continue;
 
-			const headerPath = path.join(folderPath, "runtime.header.qrz");
+			const headerPath = path.join(folderPath, "system.header.qrz");
 			if (!FileSystem.existsSync(headerPath)) continue;
 
 			runtimeTable.merge(new HeaderParser().parse(FileSystem.readFileSync(headerPath, "utf8")));
@@ -54,7 +54,7 @@ export class SymbolService {
 		const runtimeTable = this.#runtimeTable;
 		const workspace = runtimeTable.getType("workspace");
 		if (workspace === undefined) return;
-		for (const { name, params, retType } of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(name, params, retType, 0, Number.MAX_SAFE_INTEGER, "workspace"));
+		for (const { name, params, retType } of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(name, params, retType, 0, Number.MAX_SAFE_INTEGER, "@Workspace"));
 		for (const { name, typeName } of workspace.fields) if (!runtimeTable.hasVariable(name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, 0, Number.MAX_SAFE_INTEGER));
 	}
 
