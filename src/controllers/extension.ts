@@ -2,14 +2,14 @@
 
 import "adaptive-extender/node";
 import * as path from "path";
-import * as vscode from "vscode";
+import { ExtensionContext, workspace } from "vscode";
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node.js";
 
 //#region Extension controller
 class ExtensionController {
 	#client: LanguageClient | undefined;
 
-	start(context: vscode.ExtensionContext): void {
+	start(context: ExtensionContext): void {
 		const module = context.asAbsolutePath(path.join("out", "controllers", "server.js"));
 		const serverOptions: ServerOptions = {
 			run: { module, transport: TransportKind.ipc },
@@ -17,7 +17,7 @@ class ExtensionController {
 		};
 		const clientOptions: LanguageClientOptions = {
 			documentSelector: [{ scheme: "file", language: "qrz" }],
-			synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/.qrz") }
+			synchronize: { fileEvents: workspace.createFileSystemWatcher("**/.qrz") }
 		};
 		this.#client = new LanguageClient("quartzLanguageServer", "Quartz Language Server", serverOptions, clientOptions);
 		this.#client.start();
@@ -31,7 +31,7 @@ class ExtensionController {
 
 const controller = new ExtensionController();
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: ExtensionContext): void {
 	controller.start(context);
 }
 

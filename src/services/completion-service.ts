@@ -76,7 +76,7 @@ export class CompletionService {
 		for (const keyword of LanguageKeywords.values()) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
 
 		for (const name of runtime.typeNames()) {
-			if (name === "workspace") continue;
+			if (name === "Workspace") continue;
 			this.#addItem(items, added, name, CompletionItemKind.Class, `class ${name}`);
 		}
 
