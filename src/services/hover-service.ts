@@ -8,6 +8,8 @@ import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
 import { HoverData } from "../models/hover-data.js";
 import { OverloadPicker } from "./overload-picker.js";
+import { Lexer } from "./lexer.js";
+import { Token, TokenType } from "../models/token.js";
 
 //#region Hover service
 export class HoverService {
@@ -23,6 +25,15 @@ export class HoverService {
 		const symbolService = this.#symbolService;
 		const text = document.getText();
 		const offset = document.offsetAt(position);
+
+		const token = this.#getTokenAt(text, position);
+		if (token !== null) {
+			if (token.type === TokenType.String) return this.#toHover(`\`\`\`quartz\n${token.value} String\n\`\`\``);
+			if (token.type === TokenType.Character) return this.#toHover(`\`\`\`quartz\n${token.value} Character\n\`\`\``);
+			if (token.type === TokenType.Number) return this.#toHover(`\`\`\`quartz\n${token.value} Number\n\`\`\``);
+			if (token.type !== TokenType.Identifier && token.type !== TokenType.Keyword) return null;
+		}
+
 		const match = this.#wordAt(text, offset);
 		if (match === null) return null;
 
@@ -56,12 +67,12 @@ export class HoverService {
 			const prefix = (resolved.declType === base) ? typeName : (resolved.declType ?? base);
 			const signature = `${prefix}.${memberName}(${resolved.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
 			const overloadNote = matching.length > 1 ? `\n_+${matching.length - 1} ${matching.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
-			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
+			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
 		}
 
 		const field = fields.find(entry => entry.name === memberName);
 		if (field === undefined) return null;
-		return this.#md(`\`\`\`quartz\n${memberName} ${TypeResolver.mapWith(field.typeName, substitution)}\n\`\`\``);
+		return this.#toHover(`\`\`\`quartz\n${memberName} ${TypeResolver.mapWith(field.typeName, substitution)}\n\`\`\``);
 	}
 
 	#makeHover(word: string, wordEnd: number, line: number, text: string, documentTable: SymbolTable): Hover | null {
@@ -74,10 +85,10 @@ export class HoverService {
 				if (name.startsWith("[")) continue;
 				memberLines.push(`  ${name}(${params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${retType}`);
 			}
-			const typeParamStr = typeDefinition.typeParams.length > 0 ? `<${typeDefinition.typeParams.join(", ")}>` : String.empty;
-			const header = typeDefinition.parent !== undefined ? `${typeDefinition.name}${typeParamStr} from ${typeDefinition.parent}` : `${typeDefinition.name}${typeParamStr}`;
+			const typeParamString = typeDefinition.typeParams.length > 0 ? `<${typeDefinition.typeParams.join(", ")}>` : String.empty;
+			const header = typeDefinition.parent !== undefined ? `${typeDefinition.name}${typeParamString} from ${typeDefinition.parent}` : `${typeDefinition.name}${typeParamString}`;
 			const body = memberLines.length > 0 ? `\n${memberLines.join("\n")}\n` : String.empty;
-			return this.#md(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
+			return this.#toHover(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
 		const runtime = symbolService.runtimeTable();
@@ -88,20 +99,33 @@ export class HoverService {
 			const prefix = resolved.ownerType !== undefined ? `${resolved.ownerType}.` : '';
 			const signature = `${prefix}${resolved.name}(${resolved.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.retType}`;
 			const overloadNote = allOverloads.length > 1 ? `\n_+${allOverloads.length - 1} ${allOverloads.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
-			return this.#md(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
+			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
 		}
 
 		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === word);
-		if (variable !== undefined) return this.#md(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
+		if (variable !== undefined) return this.#toHover(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
 
 		const documentation = HoverData.get(word);
-		if (documentation !== undefined) return this.#md(documentation);
+		if (documentation !== undefined) return this.#toHover(documentation);
 
 		return null;
 	}
 
-	#md(value: string): Hover {
+	#toHover(value: string): Hover {
 		return { contents: { kind: MarkupKind.Markdown, value } };
+	}
+
+	#getTokenAt(text: string, position: Position): Token | null {
+		const { line, character } = position;
+		for (const token of new Lexer(text).tokenize()) {
+			const { range } = token;
+			if (range.startLine > line) break;
+			if (range.endLine < line) continue;
+			if (range.startLine === line && character < range.startColumn) continue;
+			if (range.endLine === line && character >= range.endColumn) continue;
+			return token;
+		}
+		return null;
 	}
 
 	#wordAt(text: string, offset: number): RegExpExecArray | null {
