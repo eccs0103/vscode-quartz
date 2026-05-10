@@ -1,7 +1,7 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { Hover, MarkupKind, Position } from "vscode-languageserver/node.js";
+import { Hover, MarkupKind, Position, Range } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
@@ -9,12 +9,10 @@ import { TypeResolver } from "./type-resolver.js";
 import { HoverData } from "../models/hover-data.js";
 import { OverloadPicker } from "./overload-picker.js";
 import { Lexer } from "./lexer.js";
-import { Token, TokenType } from "../models/token.js";
+import { Token, TokenRange, TokenType } from "../models/token.js";
 
 //#region Hover service
 export class HoverService {
-	static #patternWord: RegExp = /[A-Za-z_]\w*/g;
-
 	#symbolService: SymbolService;
 
 	constructor(symbolService: SymbolService) {
@@ -22,33 +20,82 @@ export class HoverService {
 	}
 
 	getHover(document: TextDocument, position: Position): Hover | null {
-		const symbolService = this.#symbolService;
 		const text = document.getText();
-		const offset = document.offsetAt(position);
-
 		const token = this.#getTokenAt(text, position);
-		if (token !== null) {
-			if (token.type === TokenType.String) return this.#toHover(`\`\`\`quartz\n${token.value} String\n\`\`\``);
-			if (token.type === TokenType.Character) return this.#toHover(`\`\`\`quartz\n${token.value} Character\n\`\`\``);
-			if (token.type === TokenType.Number) return this.#toHover(`\`\`\`quartz\n${token.value} Number\n\`\`\``);
-			if (token.type !== TokenType.Identifier && token.type !== TokenType.Keyword) return null;
+		if (token === null) return null;
+
+		const range = this.#toRange(token.range);
+		const line = token.range.startLine;
+
+		if (token.type === TokenType.String) return this.#toHover("```quartz\nString\n```", range);
+		if (token.type === TokenType.Character) return this.#toHover("```quartz\nCharacter\n```", range);
+		if (token.type === TokenType.Number) return this.#toHover("```quartz\nNumber\n```", range);
+
+		if (token.type === TokenType.Operator && token.value !== ".") {
+			const tokenStart = document.offsetAt({ line: token.range.startLine, character: token.range.startColumn });
+			const tokenEnd = document.offsetAt({ line: token.range.endLine, character: token.range.endColumn });
+			return this.#makeHoverForOperator(token.value, tokenStart, tokenEnd, line, text);
 		}
 
-		const match = this.#wordAt(text, offset);
-		if (match === null) return null;
+		if (token.type !== TokenType.Identifier && token.type !== TokenType.Keyword) return null;
 
-		const word = match[0];
-		const start = match.index;
-		const wordEnd = start + word.length;
-		const documentTable = symbolService.parse(text);
+		const wordStart = document.offsetAt({ line: token.range.startLine, character: token.range.startColumn });
+		const wordEnd = document.offsetAt({ line: token.range.endLine, character: token.range.endColumn });
+		const documentTable = this.#symbolService.parse(text);
 
-		if (start > 0 && text[start - 1] === ".") {
-			const receiverType = symbolService.typeAt(text, start - 1, position.line, documentTable);
+		if (wordStart > 0 && text[wordStart - 1] === ".") {
+			const receiverType = this.#symbolService.typeAt(text, wordStart - 1, line, documentTable);
 			if (receiverType === null) return null;
-			return this.#makeHoverForMember(word, wordEnd, receiverType, text);
+			return this.#makeHoverForMember(token.value, wordEnd, receiverType, text);
 		}
 
-		return this.#makeHover(word, wordEnd, position.line, text, documentTable);
+		return this.#makeHover(token.value, wordEnd, line, text, documentTable);
+	}
+
+	#makeHoverForOperator(operator: string, start: number, end: number, line: number, text: string): Hover | null {
+		const symbolService = this.#symbolService;
+		const documentTable = symbolService.parse(text);
+		const methodName = `[${operator}]`;
+
+		const leftType = symbolService.typeAt(text, start, line, documentTable);
+		if (leftType !== null) {
+			const hover = this.#makeHoverForOperatorOnType(operator, methodName, leftType);
+			if (hover !== null) return hover;
+		}
+
+		const rightType = this.#typeRightOf(text, end, line, documentTable);
+		if (rightType !== null) {
+			const hover = this.#makeHoverForUnaryOnType(operator, methodName, rightType);
+			if (hover !== null) return hover;
+		}
+
+		return null;
+	}
+
+	#makeHoverForOperatorOnType(operator: string, methodName: string, typeName: string): Hover | null {
+		const { base, typeArgs } = TypeResolver.toGeneric(typeName);
+		const typeDefinition = this.#symbolService.getType(base);
+		if (typeDefinition === undefined) return null;
+		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
+		const { methods } = this.#symbolService.getAllMembers(base);
+		const matching = methods.filter(method => method.name === methodName);
+		if (matching.length === 0) return null;
+		const lines = matching.map(method => {
+			const params = method.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ");
+			return `${typeName}.[${operator}](${params}) ${TypeResolver.mapWith(method.retType, substitution)}`;
+		});
+		return this.#toHover("```quartz\n" + lines.join("\n") + "\n```");
+	}
+
+	#makeHoverForUnaryOnType(operator: string, methodName: string, typeName: string): Hover | null {
+		const { base, typeArgs } = TypeResolver.toGeneric(typeName);
+		const typeDefinition = this.#symbolService.getType(base);
+		if (typeDefinition === undefined) return null;
+		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
+		const { methods } = this.#symbolService.getAllMembers(base);
+		const unary = methods.find(method => method.name === methodName && method.params.length === 0);
+		if (unary === undefined) return null;
+		return this.#toHover(`\`\`\`quartz\n${typeName}.[${operator}]() ${TypeResolver.mapWith(unary.retType, substitution)}\n\`\`\``);
 	}
 
 	#makeHoverForMember(memberName: string, wordEnd: number, typeName: string, text: string): Hover | null {
@@ -111,8 +158,33 @@ export class HoverService {
 		return null;
 	}
 
-	#toHover(value: string): Hover {
-		return { contents: { kind: MarkupKind.Markdown, value } };
+	#typeRightOf(text: string, start: number, line: number, documentTable: SymbolTable): string | null {
+		let cursor = start;
+		while (cursor < text.length && (text[cursor] === " " || text[cursor] === "\t")) cursor++;
+		if (cursor >= text.length) return null;
+		if (text[cursor] === '"') return "String";
+		if (text[cursor] === "'") return "Character";
+		if (text[cursor] >= "0" && text[cursor] <= "9") return "Number";
+		if (!/[A-Za-z_]/.test(text[cursor])) return null;
+		const nameStart = cursor;
+		while (cursor < text.length && /\w/.test(text[cursor])) cursor++;
+		const name = text.slice(nameStart, cursor);
+		if (name === "true" || name === "false") return "Boolean";
+		if (name === "null") return "Null";
+		const runtime = this.#symbolService.runtimeTable();
+		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === name);
+		return variable?.typeName ?? null;
+	}
+
+	#toHover(value: string, range?: Range): Hover {
+		return { contents: { kind: MarkupKind.Markdown, value }, range };
+	}
+
+	#toRange(tokenRange: TokenRange): Range {
+		return {
+			start: { line: tokenRange.startLine, character: tokenRange.startColumn },
+			end: { line: tokenRange.endLine, character: tokenRange.endColumn }
+		};
 	}
 
 	#getTokenAt(text: string, position: Position): Token | null {
@@ -124,16 +196,6 @@ export class HoverService {
 			if (range.startLine === line && character < range.startColumn) continue;
 			if (range.endLine === line && character >= range.endColumn) continue;
 			return token;
-		}
-		return null;
-	}
-
-	#wordAt(text: string, offset: number): RegExpExecArray | null {
-		const pattern = HoverService.#patternWord;
-		pattern.lastIndex = 0;
-		let match: RegExpExecArray | null;
-		while ((match = pattern.exec(text)) !== null) {
-			if (match.index <= offset && offset <= match.index + match[0].length) return match;
 		}
 		return null;
 	}
