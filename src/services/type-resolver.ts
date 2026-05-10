@@ -21,6 +21,8 @@ export class TypeResolver {
 	static #patternTypeWord: RegExp = /\b[A-Za-z_]\w*\b/g;
 	static #patternIdentifierChar: RegExp = /[A-Za-z_0-9]/;
 
+	#memberCache: Map<string, MemberSet> = new Map();
+
 	static toGeneric(typeName: string): GenericType {
 		const index = typeName.indexOf("<");
 		if (index === -1) return new GenericType(typeName, []);
@@ -56,12 +58,15 @@ export class TypeResolver {
 	}
 
 	getAllMembers(baseTypeName: string, runtimeTable: SymbolTable): MemberSet {
+		const cached = this.#memberCache.get(baseTypeName);
+		if (cached !== undefined) return cached;
+
 		const methods: MethodDefinition[] = [];
 		const fields: FieldDefinition[] = [];
 		const seenMethod = new Set<string>();
 		const seenField = new Set<string>();
 		const visited = new Set<string>();
-		
+
 		let step = new StepState(baseTypeName, new Map<string, string>());
 		while (!visited.has(step.name)) {
 			visited.add(step.name);
@@ -71,7 +76,7 @@ export class TypeResolver {
 
 			for (const method of typeDefinition.methods) {
 				const { name, params, retType } = method;
-				const key = `${name}/${params.length}`;
+				const key = `${name}/${params.map(p => p.typeName).join(",")}`;
 				if (seenMethod.has(key)) continue;
 				seenMethod.add(key);
 				const mappedParams = substitution.size === 0 ? params : params.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution)));
@@ -93,7 +98,9 @@ export class TypeResolver {
 			step = new StepState(base, TypeResolver.toSubstitution(baseType.typeParams, typeArgs.map(word => TypeResolver.mapWith(word, substitution))));
 		}
 
-		return new MemberSet(methods, fields);
+		const result = new MemberSet(methods, fields);
+		this.#memberCache.set(baseTypeName, result);
+		return result;
 	}
 
 	typeAt(text: string, end: number, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
@@ -118,22 +125,7 @@ export class TypeResolver {
 			const nameEnd = cursor;
 			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
 			const name = text.slice(cursor + 1, nameEnd + 1);
-			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-			if (cursor >= 0 && text[cursor] === ".") {
-				const receiverType = this.typeAt(text, cursor, line, runtimeTable, docTable);
-				if (receiverType === null) return null;
-				const { base, typeArgs } = TypeResolver.toGeneric(receiverType);
-				const typeDefinition = runtimeTable.getType(base);
-				if (typeDefinition === undefined) return null;
-				const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-				const { methods } = this.getAllMembers(base, runtimeTable);
-				const method = methods.find(entry => entry.name === name && !entry.name.startsWith("["));
-				if (method === undefined) return null;
-				return TypeResolver.mapWith(method.retType, substitution);
-			}
-			const fnOverloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
-			if (fnOverloads !== undefined && fnOverloads.length > 0) return fnOverloads[0].retType;
-			return this.#typeOf(name, line, runtimeTable, docTable);
+			return this.#typeForName(text, cursor, name, true, line, runtimeTable, docTable);
 		}
 
 		if (text[cursor] === "]") {
@@ -160,28 +152,39 @@ export class TypeResolver {
 			const nameEnd = cursor;
 			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
 			const name = text.slice(cursor + 1, nameEnd + 1);
-			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-			if (cursor >= 0 && text[cursor] === ".") {
-				const receiverType = this.typeAt(text, cursor, line, runtimeTable, docTable);
-				if (receiverType === null) return null;
-				const { base, typeArgs } = TypeResolver.toGeneric(receiverType);
-				const typeDefinition = runtimeTable.getType(base);
-				if (typeDefinition === undefined) return null;
-				const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-				const { fields } = this.getAllMembers(base, runtimeTable);
-				const field = fields.find(entry => entry.name === name);
-				if (field === undefined) return null;
-				return TypeResolver.mapWith(field.typeName, substitution);
-			}
-			return this.#typeOf(name, line, runtimeTable, docTable);
+			return this.#typeForName(text, cursor, name, false, line, runtimeTable, docTable);
 		}
 
 		if (text[cursor] === ">") return this.#typeFromGeneric(text, cursor);
-
 		if (text[cursor] === '"') return "String";
 		if (text[cursor] === "'") return "Character";
-
 		return null;
+	}
+
+	#typeForName(text: string, cursor: number, name: string, isCall: boolean, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
+		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
+		if (cursor >= 0 && text[cursor] === ".") {
+			const receiverType = this.typeAt(text, cursor, line, runtimeTable, docTable);
+			if (receiverType === null) return null;
+			const { base, typeArgs } = TypeResolver.toGeneric(receiverType);
+			const typeDefinition = runtimeTable.getType(base);
+			if (typeDefinition === undefined) return null;
+			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
+			const members = this.getAllMembers(base, runtimeTable);
+			if (isCall) {
+				const method = members.methods.find(entry => entry.name === name && !entry.name.startsWith("["));
+				if (method === undefined) return null;
+				return TypeResolver.mapWith(method.retType, substitution);
+			}
+			const field = members.fields.find(entry => entry.name === name);
+			if (field === undefined) return null;
+			return TypeResolver.mapWith(field.typeName, substitution);
+		}
+		if (isCall) {
+			const fnOverloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
+			if (fnOverloads !== undefined && fnOverloads.length > 0) return fnOverloads[0].retType;
+		}
+		return this.#typeOf(name, line, runtimeTable, docTable);
 	}
 
 	#typeOfGroup(text: string, closeParen: number, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
@@ -210,10 +213,14 @@ export class TypeResolver {
 		if (typeDef === undefined) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
 		const substitution = TypeResolver.toSubstitution(typeDef.typeParams, typeArgs);
 		const { methods } = this.getAllMembers(base, runtimeTable);
-		const method = methods.find(m => m.name === `[${operator}]` && m.params.length > 0);
-		if (method !== undefined) return TypeResolver.mapWith(method.retType, substitution);
+		const binaryMethods = methods.filter(m => m.name === `[${operator}]` && m.params.length > 0);
+		if (binaryMethods.length === 0) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
 
-		return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		const rightType = this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		const matched = (rightType !== null
+			? binaryMethods.find(m => TypeResolver.mapWith(m.params[0].typeName, substitution) === rightType)
+			: undefined) ?? binaryMethods[0];
+		return TypeResolver.mapWith(matched.retType, substitution);
 	}
 
 	#skipValueBackward(text: string, cursor: number): number {
@@ -282,7 +289,7 @@ export class TypeResolver {
 		if (name === "true" || name === "false") return "Boolean";
 		if (name === "null") return "Null";
 		if (name.length > 0 && name[0] >= "0" && name[0] <= "9") return "Number";
-		const variable = [...runtimeTable.getVariablesAt(line), ...docTable.getVariablesAt(line)].find(entry => entry.name === name);
+		const variable = runtimeTable.findVariableAt(name, line) ?? docTable.findVariableAt(name, line);
 		if (variable !== undefined) return variable.typeName;
 		const overloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
 		if (overloads !== undefined && overloads.length > 0) return "Function";

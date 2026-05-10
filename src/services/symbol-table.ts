@@ -51,6 +51,10 @@ export class SymbolTable {
 		return this.#variableList.filter(variable => line >= variable.startLine && line <= variable.endLine);
 	}
 
+	findVariableAt(name: string, line: number): VariableDefinition | undefined {
+		return this.#variableList.find(v => v.name === name && line >= v.startLine && line <= v.endLine);
+	}
+
 	hasVariable(name: string): boolean {
 		return this.#variableList.some(variable => variable.name === name);
 	}
