@@ -6,7 +6,6 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
-import { HoverData } from "../models/hover-data.js";
 import { OverloadPicker } from "./overload-picker.js";
 import { Lexer } from "./lexer.js";
 import { Token, TokenRange, TokenType } from "../models/token.js";
@@ -53,49 +52,50 @@ export class HoverService {
 	}
 
 	#makeHoverForOperator(operator: string, start: number, end: number, line: number, text: string): Hover | null {
-		const symbolService = this.#symbolService;
-		const documentTable = symbolService.parse(text);
+		const documentTable = this.#symbolService.parse(text);
 		const methodName = `[${operator}]`;
 
-		const leftType = symbolService.typeAt(text, start, line, documentTable);
-		if (leftType !== null) {
-			const hover = this.#makeHoverForOperatorOnType(operator, methodName, leftType);
-			if (hover !== null) return hover;
-		}
+		const leftType = this.#symbolService.typeAt(text, start, line, documentTable);
+		if (leftType !== null) return this.#makeBinaryOpHover(operator, methodName, leftType, end, line, text, documentTable);
 
 		const rightType = this.#typeRightOf(text, end, line, documentTable);
-		if (rightType !== null) {
-			const hover = this.#makeHoverForUnaryOnType(operator, methodName, rightType);
-			if (hover !== null) return hover;
-		}
+		if (rightType !== null) return this.#makeUnaryOpHover(operator, methodName, rightType);
 
 		return null;
 	}
 
-	#makeHoverForOperatorOnType(operator: string, methodName: string, typeName: string): Hover | null {
-		const { base, typeArgs } = TypeResolver.toGeneric(typeName);
+	#makeBinaryOpHover(operator: string, methodName: string, leftType: string, rightStart: number, line: number, text: string, documentTable: SymbolTable): Hover | null {
+		const { base, typeArgs } = TypeResolver.toGeneric(leftType);
 		const typeDefinition = this.#symbolService.getType(base);
 		if (typeDefinition === undefined) return null;
 		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 		const { methods } = this.#symbolService.getAllMembers(base);
-		const matching = methods.filter(method => method.name === methodName);
-		if (matching.length === 0) return null;
-		const lines = matching.map(method => {
-			const params = method.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ");
-			return `${typeName}.[${operator}](${params}) ${TypeResolver.mapWith(method.retType, substitution)}`;
-		});
-		return this.#toHover("```quartz\n" + lines.join("\n") + "\n```");
+		const binaryMethods = methods.filter(method => method.name === methodName && method.params.length > 0);
+		if (binaryMethods.length === 0) return null;
+
+		let selected = binaryMethods;
+		if (binaryMethods.length > 1) {
+			const rightType = this.#typeRightOf(text, rightStart, line, documentTable);
+			if (rightType !== null) {
+				const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.params[0].typeName, substitution) === rightType);
+				if (matched.length > 0) selected = matched;
+			}
+		}
+
+		const signature = `${leftType}.[${operator}](${selected[0].params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(selected[0].retType, substitution)}`;
+		const overloadNote = selected.length > 1 ? `\n_+${selected.length - 1} ${selected.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
+		return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
 	}
 
-	#makeHoverForUnaryOnType(operator: string, methodName: string, typeName: string): Hover | null {
-		const { base, typeArgs } = TypeResolver.toGeneric(typeName);
+	#makeUnaryOpHover(operator: string, methodName: string, rightType: string): Hover | null {
+		const { base, typeArgs } = TypeResolver.toGeneric(rightType);
 		const typeDefinition = this.#symbolService.getType(base);
 		if (typeDefinition === undefined) return null;
 		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 		const { methods } = this.#symbolService.getAllMembers(base);
 		const unary = methods.find(method => method.name === methodName && method.params.length === 0);
 		if (unary === undefined) return null;
-		return this.#toHover(`\`\`\`quartz\n${typeName}.[${operator}]() ${TypeResolver.mapWith(unary.retType, substitution)}\n\`\`\``);
+		return this.#toHover(`\`\`\`quartz\n${rightType}.[${operator}]() ${TypeResolver.mapWith(unary.retType, substitution)}\n\`\`\``);
 	}
 
 	#makeHoverForMember(memberName: string, wordEnd: number, typeName: string, text: string): Hover | null {
@@ -123,6 +123,9 @@ export class HoverService {
 	}
 
 	#makeHover(word: string, wordEnd: number, line: number, text: string, documentTable: SymbolTable): Hover | null {
+		if (word === "true" || word === "false") return this.#toHover("```quartz\nBoolean\n```");
+		if (word === "null") return this.#toHover("```quartz\nNull\n```");
+
 		const symbolService = this.#symbolService;
 		const typeDefinition = symbolService.getType(word) ?? documentTable.getType(word);
 		if (typeDefinition !== undefined) {
@@ -152,9 +155,6 @@ export class HoverService {
 		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === word);
 		if (variable !== undefined) return this.#toHover(`\`\`\`quartz\n${variable.name} ${variable.typeName}\n\`\`\``);
 
-		const documentation = HoverData.get(word);
-		if (documentation !== undefined) return this.#toHover(documentation);
-
 		return null;
 	}
 
@@ -171,9 +171,38 @@ export class HoverService {
 		const name = text.slice(nameStart, cursor);
 		if (name === "true" || name === "false") return "Boolean";
 		if (name === "null") return "Null";
-		const runtime = this.#symbolService.runtimeTable();
-		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === name);
-		return variable?.typeName ?? null;
+		const exprEnd = this.#scanExprEnd(text, nameStart);
+		return this.#symbolService.typeAt(text, exprEnd, line, documentTable);
+	}
+
+	#scanExprEnd(text: string, start: number): number {
+		let cursor = start;
+		while (cursor < text.length) {
+			const ch = text[cursor];
+			if (/[\w.]/.test(ch)) { cursor++; continue; }
+			if (ch === "(") {
+				let depth = 1;
+				cursor++;
+				while (cursor < text.length && depth > 0) {
+					if (text[cursor] === "(") depth++;
+					else if (text[cursor] === ")") depth--;
+					cursor++;
+				}
+				continue;
+			}
+			if (ch === "[") {
+				let depth = 1;
+				cursor++;
+				while (cursor < text.length && depth > 0) {
+					if (text[cursor] === "[") depth++;
+					else if (text[cursor] === "]") depth--;
+					cursor++;
+				}
+				continue;
+			}
+			break;
+		}
+		return cursor;
 	}
 
 	#toHover(value: string, range?: Range): Hover {
