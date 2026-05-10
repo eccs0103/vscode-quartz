@@ -164,19 +164,7 @@ export class DocumentParser {
 			if (inKeyword !== null && inKeyword.type === TokenType.Keyword && inKeyword.value === "in") stream.advance();
 		}
 
-		let depth = 1;
-		while (depth > 0) {
-			const token = stream.current();
-			if (token === null) break;
-			if (token.type === TokenType.Bracket && token.value === "(") depth++;
-			else if (token.type === TokenType.Bracket && token.value === ")") {
-				depth--;
-				if (depth === 0) break;
-			}
-			stream.advance();
-		}
-		const closeParen = stream.current();
-		if (closeParen !== null && closeParen.type === TokenType.Bracket && closeParen.value === ")") stream.advance();
+		this.#skipToClose("(", ")");
 
 		const bodyToken = stream.current();
 		const bodyEnd = (bodyToken !== null && bodyToken.type === TokenType.Bracket && bodyToken.value === "{")
@@ -217,12 +205,9 @@ export class DocumentParser {
 		}
 	}
 
-	#skipBalanced(open: string, close: string): void {
-		const stream = this.#stream;
-		const first = stream.current();
-		if (first === null || !(first.type === TokenType.Bracket && first.value === open)) return;
+	#skipToClose(open: string, close: string): void {
 		let depth = 1;
-		stream.advance();
+		const stream = this.#stream;
 		while (depth > 0) {
 			const token = stream.current();
 			if (token === null) break;
@@ -230,6 +215,13 @@ export class DocumentParser {
 			else if (token.type === TokenType.Bracket && token.value === close) depth--;
 			stream.advance();
 		}
+	}
+
+	#skipBalanced(open: string, close: string): void {
+		const first = this.#stream.current();
+		if (first === null || !(first.type === TokenType.Bracket && first.value === open)) return;
+		this.#stream.advance();
+		this.#skipToClose(open, close);
 	}
 	//#endregion
 }
