@@ -113,7 +113,7 @@ export class TypeResolver {
 			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
 			if (cursor < 0 || !TypeResolver.#isIdentifierChar(text[cursor])) {
 				if (cursor >= 0 && text[cursor] === ">") return this.#typeFromGeneric(text, cursor);
-				return this.typeAt(text, endParen, line, runtimeTable, docTable);
+				return this.#typeOfGroup(text, endParen, line, runtimeTable, docTable);
 			}
 			const nameEnd = cursor;
 			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
@@ -182,6 +182,84 @@ export class TypeResolver {
 		if (text[cursor] === "'") return "Character";
 
 		return null;
+	}
+
+	#typeOfGroup(text: string, closeParen: number, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
+		let cursor = closeParen - 1;
+		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
+		if (cursor < 0) return null;
+
+		cursor = this.#skipValueBackward(text, cursor);
+		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
+		if (cursor < 0) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+
+		if (TypeResolver.#isIdentifierChar(text[cursor]) || /[()\[\]"']/.test(text[cursor])) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+
+		const opEnd = cursor + 1;
+		while (cursor >= 0 && !TypeResolver.#isIdentifierChar(text[cursor]) && !/[()\[\]"' \t\n\r]/.test(text[cursor])) cursor--;
+		const opStart = cursor + 1;
+		const operator = text.slice(opStart, opEnd);
+
+		if (operator === "." || operator === ":" || operator === ";" || operator.length === 0) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+
+		const leftType = this.typeAt(text, opStart, line, runtimeTable, docTable);
+		if (leftType === null) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+
+		const { base, typeArgs } = TypeResolver.toGeneric(leftType);
+		const typeDef = runtimeTable.getType(base);
+		if (typeDef === undefined) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		const substitution = TypeResolver.toSubstitution(typeDef.typeParams, typeArgs);
+		const { methods } = this.getAllMembers(base, runtimeTable);
+		const method = methods.find(m => m.name === `[${operator}]` && m.params.length > 0);
+		if (method !== undefined) return TypeResolver.mapWith(method.retType, substitution);
+
+		return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+	}
+
+	#skipValueBackward(text: string, cursor: number): number {
+		if (cursor < 0) return cursor;
+		const ch = text[cursor];
+
+		if (ch === ")") {
+			let depth = 1;
+			cursor--;
+			while (cursor >= 0 && depth > 0) {
+				if (text[cursor] === ")") depth++;
+				else if (text[cursor] === "(") depth--;
+				cursor--;
+			}
+			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
+			return cursor;
+		}
+
+		if (ch === "]") {
+			let depth = 1;
+			cursor--;
+			while (cursor >= 0 && depth > 0) {
+				if (text[cursor] === "]") depth++;
+				else if (text[cursor] === "[") depth--;
+				cursor--;
+			}
+			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
+			return cursor;
+		}
+
+		if (ch === '"') {
+			cursor--;
+			while (cursor >= 0 && !(text[cursor] === '"' && (cursor === 0 || text[cursor - 1] !== "\\"))) cursor--;
+			cursor--;
+			return cursor;
+		}
+
+		if (ch === "'") {
+			cursor--;
+			while (cursor >= 0 && text[cursor] !== "'") cursor--;
+			cursor--;
+			return cursor;
+		}
+
+		while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
+		return cursor;
 	}
 
 	#typeFromGeneric(text: string, cursor: number): string | null {

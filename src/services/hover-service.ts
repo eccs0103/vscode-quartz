@@ -74,12 +74,10 @@ export class HoverService {
 		if (binaryMethods.length === 0) return null;
 
 		let selected = binaryMethods;
-		if (binaryMethods.length > 1) {
-			const rightType = this.#typeRightOf(text, rightStart, line, documentTable);
-			if (rightType !== null) {
-				const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.params[0].typeName, substitution) === rightType);
-				if (matched.length > 0) selected = matched;
-			}
+		const rightType = this.#typeRightOf(text, rightStart, line, documentTable);
+		if (rightType !== null) {
+			const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.params[0].typeName, substitution) === rightType);
+			if (matched.length > 0) selected = matched;
 		}
 
 		const signature = `${leftType}.[${operator}](${selected[0].params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(selected[0].retType, substitution)}`;
@@ -165,6 +163,16 @@ export class HoverService {
 		if (text[cursor] === '"') return "String";
 		if (text[cursor] === "'") return "Character";
 		if (text[cursor] >= "0" && text[cursor] <= "9") return "Number";
+		if (text[cursor] === "(") {
+			let depth = 1;
+			cursor++;
+			while (cursor < text.length && depth > 0) {
+				if (text[cursor] === "(") depth++;
+				else if (text[cursor] === ")") depth--;
+				cursor++;
+			}
+			return this.#symbolService.typeAt(text, cursor, line, documentTable);
+		}
 		if (!/[A-Za-z_]/.test(text[cursor])) return null;
 		const nameStart = cursor;
 		while (cursor < text.length && /\w/.test(text[cursor])) cursor++;
