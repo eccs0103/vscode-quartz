@@ -5,11 +5,11 @@ import { Controller } from "adaptive-extender/node";
 import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type SignatureHelpParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange, SignatureHelp } from "vscode-languageserver/node.js";
 import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";
 import { SymbolService } from "../services/symbol-service.js";
-import { ValidationService } from "../services/validation-service.js";
+import { ValidationService } from "../view/validation-service.js";
 import { CompletionService } from "../services/completion-service.js";
 import { HoverService } from "../services/hover-service.js";
-import { FormattingService } from "../services/formatting-service.js";
-import { FoldingService } from "../services/folding-service.js";
+import { FormattingService } from "../view/formatting-service.js";
+import { FoldingService } from "../view/folding-service.js";
 import { SignatureService } from "../services/signature-service.js";
 
 //#region Language server
