@@ -14,8 +14,8 @@ export class LanguageKeywords {
 		return LanguageKeywords.#all.has(keyword);
 	}
 
-	static values(): Set<string> {
-		return LanguageKeywords.#all;
+	static* values(): Iterable<string> {
+		for (const keyword of LanguageKeywords.#all) yield keyword;
 	}
 }
 //#endregion

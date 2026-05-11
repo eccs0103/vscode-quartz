@@ -10,7 +10,7 @@ export class TokenStream {
 	#cursor: number = 0;
 
 	constructor(code: string) {
-		this.#tokens = new Lexer(code).tokenize();
+		this.#tokens = new Lexer().tokenize(code);
 	}
 
 	current(): Token | null {

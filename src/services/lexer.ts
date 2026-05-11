@@ -6,75 +6,63 @@ import { Token, TokenRange, TokenType } from "../models/token.js";
 //#region Lexer
 export class Lexer {
 	static #patterns: Map<RegExp, TokenType | null> = new Map([
-		[/^\s+/, null],
-		[/^\/\/[^\n\r]*/, null],
-		[/^\/\*[\s\S]*?\*\//, null],
-		[/^\d+(\.\d+)?/, TokenType.Number],
-		[/^"([^"\\]|\\.)*"/, TokenType.String],
-		[/^'([^'\\]|\\.)'/, TokenType.Character],
-		[/^(>=?|<=?|!=|=|\+|-|\*|\/|%|:|\?|&|\||!|\.)/, TokenType.Operator],
-		[/^[A-Za-z_]\w*/, TokenType.Identifier],
-		[/^[(){}[\]]/, TokenType.Bracket],
-		[/^[;,]/, TokenType.Separator]
+		[/\s+/y, null],
+		[/\/\/[^\n\r]*/y, null],
+		[/\/\*[\s\S]*?\*\//y, null],
+		[/\d+(\.\d+)?/y, TokenType.Number],
+		[/"([^"\\]|\\.)*"/y, TokenType.String],
+		[/'([^'\\]|\\.)+'/y, TokenType.Character],
+		[/(>=?|<=?|!=|=|\+|-|\*|\/|%|:|\?|&|\||!|\.)/y, TokenType.Operator],
+		[/[A-Za-z_]\w*/y, TokenType.Identifier],
+		[/[(){}[\]]/y, TokenType.Bracket],
+		[/[;,]/y, TokenType.Separator]
 	]);
 
 	static #keywords: Set<string> = new Set(["true", "false", "null", "if", "else", "while", "for", "in", "continue", "break", "return"]);
 
-	#code: string;
-	#cursor: number = 0;
-	#line: number = 0;
-	#column: number = 0;
-
-	constructor(code: string) {
-		this.#code = code;
-	}
-
-	tokenize(): Token[] {
-		const code = this.#code;
+	tokenize(code: string): Token[] {
 		const tokens: Token[] = [];
+		const len = code.length;
+		let cursor = 0;
+		let line = 0;
+		let column = 0;
 
-		while (this.#cursor < code.length) {
-			const remaining = code.slice(this.#cursor);
+		while (cursor < len) {
 			let matched = false;
 
 			for (const [regex, type] of Lexer.#patterns) {
-				const match = regex.exec(remaining);
+				regex.lastIndex = cursor;
+				const match = regex.exec(code);
 				if (match === null) continue;
 
 				const value = match[0];
-				const startLine = this.#line;
-				const startColumn = this.#column;
+				const startLine = line;
+				const startColumn = column;
+				const lastNL = value.lastIndexOf("\n");
 
-				for (const character of value) {
-					if (character === "\n") {
-						this.#line++;
-						this.#column = 0;
-					} else {
-						this.#column++;
-					}
+				if (lastNL === -1) {
+					column += value.length;
+				} else {
+					line += value.split("\n").length - 1;
+					column = value.length - lastNL - 1;
 				}
 
 				if (type !== null) {
 					const finalType = type === TokenType.Identifier && Lexer.#keywords.has(value)
 						? TokenType.Keyword
 						: type;
-					tokens.push(new Token(finalType, value, new TokenRange(startLine, startColumn, this.#line, this.#column)));
+					tokens.push(new Token(finalType, value, new TokenRange(startLine, startColumn, line, column)));
 				}
 
-				this.#cursor += value.length;
+				cursor += value.length;
 				matched = true;
 				break;
 			}
 
 			if (!matched) {
-				const character = code[this.#cursor];
-				if (character === "\n") {
-					this.#line++;
-					this.#column = 0;
-				} else {
-					this.#column++;
-				}
-				this.#cursor++;
+				if (code[cursor] === "\n") { line++; column = 0; }
+				else { column++; }
+				cursor++;
 			}
 		}
 

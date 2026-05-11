@@ -40,7 +40,7 @@ export class SignatureService {
 		if (context === null) return null;
 
 		const { name, nameEndInText, activeParameter } = context;
-		const documentTable = symbolService.parse(text);
+		const documentTable = symbolService.getDocumentTable(document);
 
 		let nameCursor = nameEndInText;
 		while (nameCursor >= 0 && SignatureService.#patternIdentChar.test(text[nameCursor])) nameCursor--;

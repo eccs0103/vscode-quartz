@@ -30,17 +30,18 @@ export class HoverService {
 		if (token.type === TokenType.Character) return this.#toHover("```quartz\nCharacter\n```", range);
 		if (token.type === TokenType.Number) return this.#toHover("```quartz\nNumber\n```", range);
 
+		const documentTable = this.#symbolService.getDocumentTable(document);
+
 		if (token.type === TokenType.Operator && token.value !== ".") {
 			const tokenStart = document.offsetAt({ line: token.range.startLine, character: token.range.startColumn });
 			const tokenEnd = document.offsetAt({ line: token.range.endLine, character: token.range.endColumn });
-			return this.#makeHoverForOperator(token.value, tokenStart, tokenEnd, line, text);
+			return this.#makeHoverForOperator(token.value, tokenStart, tokenEnd, line, text, documentTable);
 		}
 
 		if (token.type !== TokenType.Identifier && token.type !== TokenType.Keyword) return null;
 
 		const wordStart = document.offsetAt({ line: token.range.startLine, character: token.range.startColumn });
 		const wordEnd = document.offsetAt({ line: token.range.endLine, character: token.range.endColumn });
-		const documentTable = this.#symbolService.parse(text);
 
 		if (wordStart > 0 && text[wordStart - 1] === ".") {
 			const receiverType = this.#symbolService.typeAt(text, wordStart - 1, line, documentTable);
@@ -51,8 +52,7 @@ export class HoverService {
 		return this.#makeHover(token.value, wordEnd, line, text, documentTable);
 	}
 
-	#makeHoverForOperator(operator: string, start: number, end: number, line: number, text: string): Hover | null {
-		const documentTable = this.#symbolService.parse(text);
+	#makeHoverForOperator(operator: string, start: number, end: number, line: number, text: string, documentTable: SymbolTable): Hover | null {
 		const methodName = `[${operator}]`;
 
 		const leftType = this.#symbolService.typeAt(text, start, line, documentTable);
@@ -80,9 +80,8 @@ export class HoverService {
 			if (matched.length > 0) selected = matched;
 		}
 
-		const signature = `${leftType}.[${operator}](${selected[0].params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(selected[0].retType, substitution)}`;
-		const overloadNote = selected.length > 1 ? `\n_+${selected.length - 1} ${selected.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
-		return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
+		const signature = `${leftType}.[${operator}](${HoverService.#fmtParams(selected[0].params, substitution)}) ${TypeResolver.mapWith(selected[0].retType, substitution)}`;
+		return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(selected.length)}`);
 	}
 
 	#makeUnaryOpHover(operator: string, methodName: string, rightType: string): Hover | null {
@@ -110,9 +109,8 @@ export class HoverService {
 			const argCount = OverloadPicker.argsAt(text, wordEnd);
 			const resolved = matching[OverloadPicker.pickFor(matching.map(method => method.params.length), argCount)];
 			const prefix = (resolved.declType === base) ? typeName : (resolved.declType ?? base);
-			const signature = `${prefix}.${memberName}(${resolved.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
-			const overloadNote = matching.length > 1 ? `\n_+${matching.length - 1} ${matching.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
-			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
+			const signature = `${prefix}.${memberName}(${HoverService.#fmtParams(resolved.params, substitution)}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
+			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(matching.length)}`);
 		}
 
 		const field = fields.find(entry => entry.name === memberName);
@@ -146,8 +144,7 @@ export class HoverService {
 			const resolved = allOverloads[OverloadPicker.pickFor(allOverloads.map(overload => overload.params.length), argCount)];
 			const prefix = resolved.ownerType !== undefined ? `${resolved.ownerType}.` : '';
 			const signature = `${prefix}${resolved.name}(${resolved.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.retType}`;
-			const overloadNote = allOverloads.length > 1 ? `\n_+${allOverloads.length - 1} ${allOverloads.length - 1 === 1 ? "overload" : "overloads"}_` : String.empty;
-			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${overloadNote}`);
+			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(allOverloads.length)}`);
 		}
 
 		const variable = [...runtime.getVariablesAt(line), ...documentTable.getVariablesAt(line)].find(entry => entry.name === word);
@@ -213,6 +210,16 @@ export class HoverService {
 		return cursor;
 	}
 
+	static #noteOverload(count: number): string {
+		if (count <= 1) return String.empty;
+		const extra = count - 1;
+		return `\n_+${extra} ${extra === 1 ? "overload" : "overloads"}_`;
+	}
+
+	static #fmtParams(params: { name: string; typeName: string }[], substitution: Map<string, string>): string {
+		return params.map(p => `${p.name} ${TypeResolver.mapWith(p.typeName, substitution)}`).join(", ");
+	}
+
 	#toHover(value: string, range?: Range): Hover {
 		return { contents: { kind: MarkupKind.Markdown, value }, range };
 	}
@@ -226,7 +233,7 @@ export class HoverService {
 
 	#getTokenAt(text: string, position: Position): Token | null {
 		const { line, character } = position;
-		for (const token of new Lexer(text).tokenize()) {
+		for (const token of new Lexer().tokenize(text)) {
 			const { range } = token;
 			if (range.startLine > line) break;
 			if (range.endLine < line) continue;

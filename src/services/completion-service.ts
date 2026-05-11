@@ -24,7 +24,7 @@ export class CompletionService {
 		const offset = document.offsetAt(position);
 		const before = text.slice(0, offset);
 
-		const documentTable = symbolService.parse(text);
+		const documentTable = symbolService.getDocumentTable(document);
 
 		const dotMatch = CompletionService.#patternMemberAccess.exec(before);
 		if (dotMatch !== null) {

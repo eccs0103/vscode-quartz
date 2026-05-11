@@ -4,16 +4,30 @@ import "adaptive-extender/node";
 import * as FileSystem from "fs";
 import * as path from "path";
 import { WorkspaceFolder } from "vscode-languageserver/node.js";
+import { TextDocument } from "vscode-languageserver-textdocument";
 import { HeaderParser } from "./header-parser.js";
 import { DocumentParser } from "./document-parser.js";
 import { TypeDefinition, FunctionDefinition, MemberSet, VariableDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
 
+//#region Doc cache entry
+class DocCacheEntry {
+	version: number;
+	table: SymbolTable;
+
+	constructor(version: number, table: SymbolTable) {
+		this.version = version;
+		this.table = table;
+	}
+}
+//#endregion
+
 //#region Symbol service
 export class SymbolService {
 	#runtimeTable: SymbolTable = new SymbolTable();
 	#resolver: TypeResolver = new TypeResolver();
+	#docCache: Map<string, DocCacheEntry> = new Map();
 
 	initialize(workspaceFolders: WorkspaceFolder[]): void {
 		const runtimeTable = this.#runtimeTable;
@@ -32,6 +46,15 @@ export class SymbolService {
 
 	parse(code: string): SymbolTable {
 		return new DocumentParser().parse(code);
+	}
+
+	getDocumentTable(document: TextDocument): SymbolTable {
+		const { uri, version } = document;
+		const cached = this.#docCache.get(uri);
+		if (cached !== undefined && cached.version === version) return cached.table;
+		const table = new DocumentParser().parse(document.getText());
+		this.#docCache.set(uri, new DocCacheEntry(version, table));
+		return table;
 	}
 
 	getAllMembers(baseTypeName: string): MemberSet {
