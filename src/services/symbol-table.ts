@@ -48,11 +48,11 @@ export class SymbolTable {
 	}
 
 	getVariablesAt(line: number): VariableDefinition[] {
-		return this.#variableList.filter(variable => line >= variable.startLine && line <= variable.endLine);
+		return this.#variableList.filter(variable => variable.isInScope(line));
 	}
 
 	findVariableAt(name: string, line: number): VariableDefinition | undefined {
-		return this.#variableList.find(v => v.name === name && line >= v.startLine && line <= v.endLine);
+		return this.#variableList.find(variable => variable.name === name && variable.isInScope(line));
 	}
 
 	hasVariable(name: string): boolean {

@@ -3,6 +3,7 @@
 import "adaptive-extender/node";
 import { TokenType } from "../models/token.js";
 import { FunctionDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-definitions.js";
+import { Cursor, Span } from "../models/span.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
 import { TypeReader } from "./type-reader.js";
@@ -61,7 +62,7 @@ export class DocumentParser {
 		const bodyStart = stream.current()?.span.start.line ?? 0;
 		const bodyEnd = stream.findMatchingBrace();
 
-		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, nameToken.span.start.line, bodyEnd, "@Workspace"));
+		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, "@Workspace", FunctionDefinition.scopeSpan(nameToken.span.start.line, bodyEnd)));
 
 		const bodyOpen = stream.current();
 		if (bodyOpen === null || !(bodyOpen.type === TokenType.Bracket && bodyOpen.value === "{")) return;
@@ -75,7 +76,7 @@ export class DocumentParser {
 	#readBlock(initParams: ParameterDefinition[], blockStart: number, blockEnd: number): void {
 		const stream = this.#stream;
 		const table = this.#table;
-		for (const parameter of initParams) table.addVariable(new VariableDefinition(parameter.name, parameter.typeName, blockStart, blockEnd));
+		for (const parameter of initParams) table.addVariable(new VariableDefinition(parameter.name, parameter.typeName, FunctionDefinition.scopeSpan(blockStart, blockEnd)));
 		while (true) {
 			const token = stream.current();
 			if (token === null || (token.type === TokenType.Bracket && token.value === "}")) break;
@@ -171,7 +172,7 @@ export class DocumentParser {
 			? stream.findMatchingBrace()
 			: scopeEnd;
 
-		if (!String.isEmpty(name)) this.#table.addVariable(new VariableDefinition(name, typeName, bodyToken?.span.start.line ?? 0, bodyEnd));
+		if (!String.isEmpty(name)) this.#table.addVariable(new VariableDefinition(name, typeName, FunctionDefinition.scopeSpan(bodyToken?.span.start.line ?? 0, bodyEnd)));
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
@@ -190,7 +191,7 @@ export class DocumentParser {
 			this.#skipToSemicolon();
 		}
 
-		this.#table.addVariable(new VariableDefinition(nameToken.value, typeName, nameToken.span.start.line, scopeEnd));
+		this.#table.addVariable(new VariableDefinition(nameToken.value, typeName, FunctionDefinition.scopeSpan(nameToken.span.start.line, scopeEnd)));
 	}
 	//#endregion
 	//#region Utilities

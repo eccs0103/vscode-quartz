@@ -1,8 +1,9 @@
 "use strict";
 
 import "adaptive-extender/node";
+import { Span, Cursor } from "./span.js";
 
-//#region Symbol definitions
+//#region Parameter definition
 export class ParameterDefinition {
 	name: string;
 	typeName: string;
@@ -12,21 +13,9 @@ export class ParameterDefinition {
 		this.typeName = typeName;
 	}
 }
+//#endregion
 
-export class MethodDefinition {
-	name: string;
-	params: ParameterDefinition[];
-	retType: string;
-	declType: string | undefined;
-
-	constructor(name: string, params: ParameterDefinition[], retType: string, declType?: string) {
-		this.name = name;
-		this.params = params;
-		this.retType = retType;
-		this.declType = declType;
-	}
-}
-
+//#region Field definition
 export class FieldDefinition {
 	name: string;
 	typeName: string;
@@ -36,15 +25,47 @@ export class FieldDefinition {
 		this.typeName = typeName;
 	}
 }
+//#endregion
 
+//#region Function definition
+export class FunctionDefinition {
+	name: string;
+	parameters: ParameterDefinition[];
+	returnType: string;
+	declaringType: string | undefined;
+	bodySpan: Span | undefined;
+
+	constructor(name: string, parameters: ParameterDefinition[], returnType: string, declaringType?: string, bodySpan?: Span) {
+		this.name = name;
+		this.parameters = parameters;
+		this.returnType = returnType;
+		this.declaringType = declaringType;
+		this.bodySpan = bodySpan;
+	}
+
+	hasBody(): boolean {
+		return this.bodySpan !== undefined;
+	}
+
+	isInScope(line: number): boolean {
+		return this.bodySpan === undefined || this.bodySpan.containsLine(line);
+	}
+
+	static scopeSpan(startLine: number, endLine: number): Span {
+		return new Span(new Cursor(startLine, 0), new Cursor(endLine, 0));
+	}
+}
+//#endregion
+
+//#region Type definition
 export class TypeDefinition {
 	name: string;
 	typeParams: string[];
 	parent: string | undefined;
-	methods: MethodDefinition[];
+	methods: FunctionDefinition[];
 	fields: FieldDefinition[];
 
-	constructor(name: string, typeParams: string[], parent: string | undefined, methods: MethodDefinition[], fields: FieldDefinition[]) {
+	constructor(name: string, typeParams: string[], parent: string | undefined, methods: FunctionDefinition[], fields: FieldDefinition[]) {
 		this.name = name;
 		this.typeParams = typeParams;
 		this.parent = parent;
@@ -56,58 +77,24 @@ export class TypeDefinition {
 		return this.typeParams.length > 0;
 	}
 }
+//#endregion
 
-export class FunctionDefinition {
-	name: string;
-	params: ParameterDefinition[];
-	retType: string;
-	startLine: number;
-	endLine: number;
-	ownerType: string | undefined;
-
-	constructor(name: string, params: ParameterDefinition[], retType: string, startLine: number, endLine: number, ownerType?: string) {
-		this.name = name;
-		this.params = params;
-		this.retType = retType;
-		this.startLine = startLine;
-		this.endLine = endLine;
-		this.ownerType = ownerType;
-	}
-}
-
+//#region Variable definition
 export class VariableDefinition {
 	name: string;
 	typeName: string;
-	startLine: number;
-	endLine: number;
-	ownerType: string | undefined;
+	scope: Span;
+	declaringType: string | undefined;
 
-	constructor(name: string, typeName: string, startLine: number, endLine: number, ownerType?: string) {
+	constructor(name: string, typeName: string, scope: Span, declaringType?: string) {
 		this.name = name;
 		this.typeName = typeName;
-		this.startLine = startLine;
-		this.endLine = endLine;
-		this.ownerType = ownerType;
+		this.scope = scope;
+		this.declaringType = declaringType;
 	}
-}
 
-export class GenericType {
-	base: string;
-	typeArgs: string[];
-
-	constructor(base: string, typeArgs: string[]) {
-		this.base = base;
-		this.typeArgs = typeArgs;
-	}
-}
-
-export class MemberSet {
-	methods: MethodDefinition[];
-	fields: FieldDefinition[];
-
-	constructor(methods: MethodDefinition[], fields: FieldDefinition[]) {
-		this.methods = methods;
-		this.fields = fields;
+	isInScope(line: number): boolean {
+		return this.scope.containsLine(line);
 	}
 }
 //#endregion

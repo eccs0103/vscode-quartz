@@ -1,7 +1,8 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { FieldDefinition, GenericType, MemberSet, MethodDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
+import { FieldDefinition, FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
+import { GenericType, MemberSet } from "../models/type-members.js";
 import { SymbolTable } from "./symbol-table.js";
 
 //#region Type step
@@ -61,7 +62,7 @@ export class TypeResolver {
 		const cached = this.#memberCache.get(baseTypeName);
 		if (cached !== undefined) return cached;
 
-		const methods: MethodDefinition[] = [];
+		const methods: FunctionDefinition[] = [];
 		const fields: FieldDefinition[] = [];
 		const seenMethod = new Set<string>();
 		const seenField = new Set<string>();
@@ -75,13 +76,13 @@ export class TypeResolver {
 			const substitution: Map<string, string> = step.substitution;
 
 			for (const method of typeDefinition.methods) {
-				const { name, params, retType } = method;
-				const key = `${name}/${params.map(p => p.typeName).join(",")}`;
+				const { name, parameters, returnType } = method;
+				const key = `${name}/${parameters.map(p => p.typeName).join(",")}`;
 				if (seenMethod.has(key)) continue;
 				seenMethod.add(key);
-				const mappedParams = substitution.size === 0 ? params : params.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution)));
-				const mappedRet = substitution.size === 0 ? retType : TypeResolver.mapWith(retType, substitution);
-				methods.push(new MethodDefinition(name, mappedParams, mappedRet, step.name));
+				const mappedParams = substitution.size === 0 ? parameters : parameters.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution)));
+				const mappedReturn = substitution.size === 0 ? returnType : TypeResolver.mapWith(returnType, substitution);
+				methods.push(new FunctionDefinition(name, mappedParams, mappedReturn, step.name));
 			}
 
 			for (const field of typeDefinition.fields) {
@@ -143,9 +144,9 @@ export class TypeResolver {
 			if (typeDefinition === undefined) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 			const { methods } = this.getAllMembers(base, runtimeTable);
-			const indexOp = methods.find(entry => entry.name === "[]" && entry.params.length === 1);
+			const indexOp = methods.find(entry => entry.name === "[]" && entry.parameters.length === 1);
 			if (indexOp === undefined) return null;
-			return TypeResolver.mapWith(indexOp.retType, substitution);
+			return TypeResolver.mapWith(indexOp.returnType, substitution);
 		}
 
 		if (TypeResolver.#isIdentifierChar(text[cursor])) {
@@ -174,7 +175,7 @@ export class TypeResolver {
 			if (isCall) {
 				const method = members.methods.find(entry => entry.name === name && !entry.name.startsWith("["));
 				if (method === undefined) return null;
-				return TypeResolver.mapWith(method.retType, substitution);
+				return TypeResolver.mapWith(method.returnType, substitution);
 			}
 			const field = members.fields.find(entry => entry.name === name);
 			if (field === undefined) return null;
@@ -182,7 +183,7 @@ export class TypeResolver {
 		}
 		if (isCall) {
 			const fnOverloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
-			if (fnOverloads !== undefined && fnOverloads.length > 0) return fnOverloads[0].retType;
+			if (fnOverloads !== undefined && fnOverloads.length > 0) return fnOverloads[0].returnType;
 		}
 		return this.#typeOf(name, line, runtimeTable, docTable);
 	}
@@ -213,14 +214,14 @@ export class TypeResolver {
 		if (typeDef === undefined) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
 		const substitution = TypeResolver.toSubstitution(typeDef.typeParams, typeArgs);
 		const { methods } = this.getAllMembers(base, runtimeTable);
-		const binaryMethods = methods.filter(m => m.name === `[${operator}]` && m.params.length > 0);
+		const binaryMethods = methods.filter(m => m.name === `[${operator}]` && m.parameters.length > 0);
 		if (binaryMethods.length === 0) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
 
 		const rightType = this.typeAt(text, closeParen, line, runtimeTable, docTable);
 		const matched = (rightType !== null
-			? binaryMethods.find(m => TypeResolver.mapWith(m.params[0].typeName, substitution) === rightType)
+			? binaryMethods.find(m => TypeResolver.mapWith(m.parameters[0].typeName, substitution) === rightType)
 			: undefined) ?? binaryMethods[0];
-		return TypeResolver.mapWith(matched.retType, substitution);
+		return TypeResolver.mapWith(matched.returnType, substitution);
 	}
 
 	#skipValueBackward(text: string, cursor: number): number {

@@ -4,7 +4,7 @@ import "adaptive-extender/node";
 import { SignatureHelp, SignatureInformation, ParameterInformation, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
-import { ParameterDefinition } from "../models/symbol-definitions.js";
+import { FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
 import { TypeResolver } from "./type-resolver.js";
 import { OverloadPicker } from "./overload-picker.js";
 
@@ -50,7 +50,7 @@ export class SignatureService {
 
 		const isDot = dotCursor >= 0 && text[dotCursor] === '.';
 
-		let overloads: { name: string; params: ParameterDefinition[]; retType: string }[];
+		let overloads: FunctionDefinition[];
 		let ownerType: string | undefined;
 
 		if (isDot) {
@@ -62,22 +62,22 @@ export class SignatureService {
 			const { methods } = symbolService.getAllMembers(base);
 			const matching = methods.filter(method => method.name === name && !method.name.startsWith('['));
 			if (matching.length === 0) return null;
-			const declType = matching[0].declType ?? base;
+			const declType = matching[0].declaringType ?? base;
 			ownerType = (declType === base) ? receiverType : declType;
-			overloads = matching.map(method => ({
-				name: method.name,
-				params: method.params.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))),
-				retType: TypeResolver.mapWith(method.retType, substitution)
-			}));
+			overloads = matching.map(method => new FunctionDefinition(
+				method.name,
+				method.parameters.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))),
+				TypeResolver.mapWith(method.returnType, substitution)
+			));
 		} else {
 			const runtime = symbolService.runtimeTable();
 			const rawOverloads = runtime.getFunctions(name) ?? documentTable.getFunctions(name);
 			if (rawOverloads === undefined || rawOverloads.length === 0) return null;
-			ownerType = rawOverloads[0].ownerType;
+			ownerType = rawOverloads[0].declaringType;
 			overloads = rawOverloads;
 		}
 
-		const activeSignature = OverloadPicker.pickActive(overloads.map(overload => overload.params.length), activeParameter);
+		const activeSignature = OverloadPicker.pickActive(overloads.map(overload => overload.parameters.length), activeParameter);
 		const signatures = overloads.map(overload => this.#makeSignature(overload, ownerType));
 		return { signatures, activeSignature, activeParameter };
 	}
@@ -112,10 +112,10 @@ export class SignatureService {
 		return null;
 	}
 
-	#makeSignature(callable: { name: string; params: ParameterDefinition[]; retType: string }, ownerType: string | undefined): SignatureInformation {
+	#makeSignature(callable: FunctionDefinition, ownerType: string | undefined): SignatureInformation {
 		const prefix = ownerType !== undefined ? `${ownerType}.` : '';
-		const paramStrings = callable.params.map(parameter => `${parameter.name} ${parameter.typeName}`);
-		const label = `${prefix}${callable.name}(${paramStrings.join(', ')}) ${callable.retType}`;
+		const paramStrings = callable.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`);
+		const label = `${prefix}${callable.name}(${paramStrings.join(', ')}) ${callable.returnType}`;
 		let charOffset = prefix.length + callable.name.length + 1;
 		const parameters: ParameterInformation[] = paramStrings.map((param, index) => {
 			const info: ParameterInformation = { label: [charOffset, charOffset + param.length] };

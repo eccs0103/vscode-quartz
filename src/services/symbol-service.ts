@@ -7,7 +7,8 @@ import { WorkspaceFolder } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { HeaderParser } from "./header-parser.js";
 import { DocumentParser } from "./document-parser.js";
-import { TypeDefinition, FunctionDefinition, MemberSet, VariableDefinition } from "../models/symbol-definitions.js";
+import { TypeDefinition, FunctionDefinition, VariableDefinition } from "../models/symbol-definitions.js";
+import { MemberSet } from "../models/type-members.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
 
@@ -77,8 +78,9 @@ export class SymbolService {
 		const runtimeTable = this.#runtimeTable;
 		const workspace = runtimeTable.getType("Workspace");
 		if (workspace === undefined) return;
-		for (const { name, params, retType } of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(name, params, retType, 0, Number.MAX_SAFE_INTEGER, "@Workspace"));
-		for (const { name, typeName } of workspace.fields) if (!runtimeTable.hasVariable(name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, 0, Number.MAX_SAFE_INTEGER, "@Workspace"));
+		const globalScope = FunctionDefinition.scopeSpan(0, Number.MAX_SAFE_INTEGER);
+		for (const method of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(method.name, method.parameters, method.returnType, "@Workspace", globalScope));
+		for (const { name, typeName } of workspace.fields) if (!runtimeTable.hasVariable(name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, globalScope, "@Workspace"));
 	}
 
 	#pathFrom(uri: string): string | null {

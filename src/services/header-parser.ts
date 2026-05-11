@@ -2,7 +2,7 @@
 
 import "adaptive-extender/node";
 import { TokenType } from "../models/token.js";
-import { TypeDefinition, FieldDefinition, MethodDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
+import { TypeDefinition, FieldDefinition, FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
 import { TypeReader } from "./type-reader.js";
@@ -68,7 +68,7 @@ export class HeaderParser {
 		}
 		stream.advance();
 
-		const methods: MethodDefinition[] = [];
+		const methods: FunctionDefinition[] = [];
 		const fields: FieldDefinition[] = [];
 
 		while (true) {
@@ -82,7 +82,7 @@ export class HeaderParser {
 		return new TypeDefinition(name, typeParams, parent, methods, fields);
 	}
 
-	#readMember(methods: MethodDefinition[], fields: FieldDefinition[]): void {
+	#readMember(methods: FunctionDefinition[], fields: FieldDefinition[]): void {
 		const stream = this.#stream;
 		const first = stream.current();
 		if (first === null) return;
@@ -102,7 +102,7 @@ export class HeaderParser {
 			const params = this.#reader.readParams();
 			const retType = this.#reader.readType();
 			stream.skipSemicolon();
-			methods.push(new MethodDefinition(name, params, retType));
+			methods.push(new FunctionDefinition(name, params, retType));
 			return;
 		}
 
@@ -119,7 +119,7 @@ export class HeaderParser {
 			const params = this.#reader.readParams();
 			const retType = this.#reader.readType();
 			stream.skipSemicolon();
-			methods.push(new MethodDefinition(name, params, retType));
+			methods.push(new FunctionDefinition(name, params, retType));
 		} else {
 			const typeName = this.#reader.readType();
 			stream.skipSemicolon();

@@ -57,8 +57,8 @@ export class CompletionService {
 
 		for (const [label, overloads] of methodOverloads) {
 			const first = overloads[0];
-			const prefix = (first.declType === base) ? rawType : (first.declType ?? base);
-			const detail = `${prefix}.${label}(${first.params.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.retType, substitution)}`;
+			const prefix = (first.declaringType === base) ? rawType : (first.declaringType ?? base);
+			const detail = `${prefix}.${label}(${first.parameters.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.returnType, substitution)}`;
 			items.push({ label, kind: CompletionItemKind.Method, detail });
 		}
 
@@ -83,7 +83,7 @@ export class CompletionService {
 		this.#addFunctionItems(items, added, runtime);
 		this.#addFunctionItems(items, added, documentTable);
 
-		for (const { name, typeName, ownerType } of runtime.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, ownerType !== undefined ? `${ownerType}.${name} ${typeName}` : typeName);
+		for (const { name, typeName, declaringType } of runtime.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, declaringType !== undefined ? `${declaringType}.${name} ${typeName}` : typeName);
 		for (const { name, typeName } of documentTable.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
 
 		return items;
@@ -92,8 +92,8 @@ export class CompletionService {
 	#addFunctionItems(items: CompletionItem[], added: Set<string>, table: SymbolTable): void {
 		for (const [name, overloads] of table.functionEntries()) {
 			const first = overloads[0];
-			const prefix = first.ownerType !== undefined ? `${first.ownerType}.` : '';
-			const detail = `${prefix}${name}(${first.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${first.retType}`;
+			const prefix = first.declaringType !== undefined ? `${first.declaringType}.` : '';
+			const detail = `${prefix}${name}(${first.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${first.returnType}`;
 			this.#addItem(items, added, name, CompletionItemKind.Function, detail);
 		}
 	}

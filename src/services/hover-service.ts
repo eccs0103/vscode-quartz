@@ -10,6 +10,7 @@ import { OverloadPicker } from "./overload-picker.js";
 import { Lexer } from "./lexer.js";
 import { Token, TokenType } from "../models/token.js";
 import { Span } from "../models/span.js";
+import { ParameterDefinition } from "../models/symbol-definitions.js";
 
 //#region Hover service
 export class HoverService {
@@ -70,15 +71,15 @@ export class HoverService {
 		if (typeDefinition === undefined) return null;
 		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 		const { methods } = this.#symbolService.getAllMembers(base);
-		const binaryMethods = methods.filter(method => method.name === methodName && method.params.length > 0);
+		const binaryMethods = methods.filter(method => method.name === methodName && method.parameters.length > 0);
 		if (binaryMethods.length === 0) return null;
 
 		const rightType = this.#typeRightOf(text, rightStart, line, documentTable);
 		if (rightType === null) return null;
-		const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.params[0].typeName, substitution) === rightType);
+		const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.parameters[0].typeName, substitution) === rightType);
 		if (matched.length === 0) return null;
 
-		const signature = `${leftType}.[${operator}](${HoverService.#fmtParams(matched[0].params, substitution)}) ${TypeResolver.mapWith(matched[0].retType, substitution)}`;
+		const signature = `${leftType}.[${operator}](${HoverService.#fmtParams(matched[0].parameters, substitution)}) ${TypeResolver.mapWith(matched[0].returnType, substitution)}`;
 		return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\``);
 	}
 
@@ -88,9 +89,9 @@ export class HoverService {
 		if (typeDefinition === undefined) return null;
 		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 		const { methods } = this.#symbolService.getAllMembers(base);
-		const unary = methods.find(method => method.name === methodName && method.params.length === 0);
+		const unary = methods.find(method => method.name === methodName && method.parameters.length === 0);
 		if (unary === undefined) return null;
-		return this.#toHover(`\`\`\`quartz\n${rightType}.[${operator}]() ${TypeResolver.mapWith(unary.retType, substitution)}\n\`\`\``);
+		return this.#toHover(`\`\`\`quartz\n${rightType}.[${operator}]() ${TypeResolver.mapWith(unary.returnType, substitution)}\n\`\`\``);
 	}
 
 	#makeHoverForMember(memberName: string, wordEnd: number, typeName: string, text: string): Hover | null {
@@ -105,9 +106,9 @@ export class HoverService {
 		const matching = methods.filter(entry => entry.name === memberName && !entry.name.startsWith("["));
 		if (matching.length > 0) {
 			const argCount = OverloadPicker.argsAt(text, wordEnd);
-			const resolved = matching[OverloadPicker.pickFor(matching.map(method => method.params.length), argCount)];
-			const prefix = (resolved.declType === base) ? typeName : (resolved.declType ?? base);
-			const signature = `${prefix}.${memberName}(${HoverService.#fmtParams(resolved.params, substitution)}) ${TypeResolver.mapWith(resolved.retType, substitution)}`;
+			const resolved = matching[OverloadPicker.pickFor(matching.map(method => method.parameters.length), argCount)];
+			const prefix = (resolved.declaringType === base) ? typeName : (resolved.declaringType ?? base);
+			const signature = `${prefix}.${memberName}(${HoverService.#fmtParams(resolved.parameters, substitution)}) ${TypeResolver.mapWith(resolved.returnType, substitution)}`;
 			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(matching.length)}`);
 		}
 
@@ -125,9 +126,9 @@ export class HoverService {
 		if (typeDefinition !== undefined) {
 			const memberLines: string[] = [];
 			for (const { name, typeName } of typeDefinition.fields) memberLines.push(`  ${name} ${typeName}`);
-			for (const { name, params, retType } of typeDefinition.methods) {
+			for (const { name, parameters, returnType } of typeDefinition.methods) {
 				if (name.startsWith("[")) continue;
-				memberLines.push(`  ${name}(${params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${retType}`);
+				memberLines.push(`  ${name}(${parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${returnType}`);
 			}
 			const typeParamString = typeDefinition.typeParams.length > 0 ? `<${typeDefinition.typeParams.join(", ")}>` : String.empty;
 			const header = typeDefinition.parent !== undefined ? `${typeDefinition.name}${typeParamString} from ${typeDefinition.parent}` : `${typeDefinition.name}${typeParamString}`;
@@ -139,9 +140,9 @@ export class HoverService {
 		const allOverloads = [...(runtime.getFunctions(word) ?? []), ...(documentTable.getFunctions(word) ?? [])];
 		if (allOverloads.length > 0) {
 			const argCount = OverloadPicker.argsAt(text, wordEnd);
-			const resolved = allOverloads[OverloadPicker.pickFor(allOverloads.map(overload => overload.params.length), argCount)];
-			const prefix = resolved.ownerType !== undefined ? `${resolved.ownerType}.` : '';
-			const signature = `${prefix}${resolved.name}(${resolved.params.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.retType}`;
+			const resolved = allOverloads[OverloadPicker.pickFor(allOverloads.map(overload => overload.parameters.length), argCount)];
+			const prefix = resolved.declaringType !== undefined ? `${resolved.declaringType}.` : '';
+			const signature = `${prefix}${resolved.name}(${resolved.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.returnType}`;
 			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(allOverloads.length)}`);
 		}
 
@@ -168,9 +169,9 @@ export class HoverService {
 			if (typeDefinition === undefined) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 			const { methods } = this.#symbolService.getAllMembers(base);
-			const unaryMethod = methods.find(m => m.name === `[${unaryOp}]` && m.params.length === 0);
+			const unaryMethod = methods.find(m => m.name === `[${unaryOp}]` && m.parameters.length === 0);
 			if (unaryMethod === undefined) return operandType;
-			return TypeResolver.mapWith(unaryMethod.retType, substitution);
+			return TypeResolver.mapWith(unaryMethod.returnType, substitution);
 		}
 		if (text[cursor] === "(") {
 			const exprEnd = this.#scanExprEnd(text, cursor);
@@ -222,8 +223,8 @@ export class HoverService {
 		return `\n_+${extra} ${extra === 1 ? "overload" : "overloads"}_`;
 	}
 
-	static #fmtParams(params: { name: string; typeName: string }[], substitution: Map<string, string>): string {
-		return params.map(p => `${p.name} ${TypeResolver.mapWith(p.typeName, substitution)}`).join(", ");
+	static #fmtParams(parameters: ParameterDefinition[], substitution: Map<string, string>): string {
+		return parameters.map(p => `${p.name} ${TypeResolver.mapWith(p.typeName, substitution)}`).join(", ");
 	}
 
 	#toHover(value: string, range?: Span): Hover {
