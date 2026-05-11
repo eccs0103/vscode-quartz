@@ -1,14 +1,15 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { Hover, MarkupKind, Position, Range } from "vscode-languageserver/node.js";
+import { Hover, MarkupKind, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
 import { OverloadPicker } from "./overload-picker.js";
 import { Lexer } from "./lexer.js";
-import { Token, TokenRange, TokenType } from "../models/token.js";
+import { Token, TokenType } from "../models/token.js";
+import { Span } from "../models/span.js";
 
 //#region Hover service
 export class HoverService {
@@ -23,25 +24,24 @@ export class HoverService {
 		const token = this.#getTokenAt(text, position);
 		if (token === null) return null;
 
-		const range = this.#toRange(token.range);
-		const line = token.range.startLine;
+		const line = token.span.start.line;
 
-		if (token.type === TokenType.String) return this.#toHover("```quartz\nString\n```", range);
-		if (token.type === TokenType.Character) return this.#toHover("```quartz\nCharacter\n```", range);
-		if (token.type === TokenType.Number) return this.#toHover("```quartz\nNumber\n```", range);
+		if (token.type === TokenType.String) return this.#toHover("```quartz\nString\n```", token.span);
+		if (token.type === TokenType.Character) return this.#toHover("```quartz\nCharacter\n```", token.span);
+		if (token.type === TokenType.Number) return this.#toHover("```quartz\nNumber\n```", token.span);
 
 		const documentTable = this.#symbolService.getDocumentTable(document);
 
 		if (token.type === TokenType.Operator && token.value !== ".") {
-			const tokenStart = document.offsetAt({ line: token.range.startLine, character: token.range.startColumn });
-			const tokenEnd = document.offsetAt({ line: token.range.endLine, character: token.range.endColumn });
+			const tokenStart = document.offsetAt(token.span.start.toPosition());
+			const tokenEnd = document.offsetAt(token.span.end.toPosition());
 			return this.#makeHoverForOperator(token.value, tokenStart, tokenEnd, line, text, documentTable);
 		}
 
 		if (token.type !== TokenType.Identifier && token.type !== TokenType.Keyword) return null;
 
-		const wordStart = document.offsetAt({ line: token.range.startLine, character: token.range.startColumn });
-		const wordEnd = document.offsetAt({ line: token.range.endLine, character: token.range.endColumn });
+		const wordStart = document.offsetAt(token.span.start.toPosition());
+		const wordEnd = document.offsetAt(token.span.end.toPosition());
 
 		if (wordStart > 0 && text[wordStart - 1] === ".") {
 			const receiverType = this.#symbolService.typeAt(text, wordStart - 1, line, documentTable);
@@ -226,25 +226,18 @@ export class HoverService {
 		return params.map(p => `${p.name} ${TypeResolver.mapWith(p.typeName, substitution)}`).join(", ");
 	}
 
-	#toHover(value: string, range?: Range): Hover {
-		return { contents: { kind: MarkupKind.Markdown, value }, range };
-	}
-
-	#toRange(tokenRange: TokenRange): Range {
-		return {
-			start: { line: tokenRange.startLine, character: tokenRange.startColumn },
-			end: { line: tokenRange.endLine, character: tokenRange.endColumn }
-		};
+	#toHover(value: string, range?: Span): Hover {
+		return { contents: { kind: MarkupKind.Markdown, value }, range: range?.toRange() };
 	}
 
 	#getTokenAt(text: string, position: Position): Token | null {
 		const { line, character } = position;
 		for (const token of new Lexer().tokenize(text)) {
-			const { range } = token;
-			if (range.startLine > line) break;
-			if (range.endLine < line) continue;
-			if (range.startLine === line && character < range.startColumn) continue;
-			if (range.endLine === line && character >= range.endColumn) continue;
+			const { span } = token;
+			if (span.start.line > line) break;
+			if (span.end.line < line) continue;
+			if (span.start.line === line && character < span.start.column) continue;
+			if (span.end.line === line && character >= span.end.column) continue;
 			return token;
 		}
 		return null;

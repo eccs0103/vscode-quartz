@@ -1,7 +1,8 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { Token, TokenRange, TokenType } from "../models/token.js";
+import { Cursor, Span } from "../models/span.js";
+import { Token, TokenType } from "../models/token.js";
 
 //#region Lexer
 export class Lexer {
@@ -51,7 +52,8 @@ export class Lexer {
 					const finalType = type === TokenType.Identifier && Lexer.#keywords.has(value)
 						? TokenType.Keyword
 						: type;
-					tokens.push(new Token(finalType, value, new TokenRange(startLine, startColumn, line, column)));
+					const tokenSpan = new Span(new Cursor(startLine, startColumn), new Cursor(line, column));
+					tokens.push(new Token(finalType, value, tokenSpan));
 				}
 
 				cursor += value.length;

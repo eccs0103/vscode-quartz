@@ -46,7 +46,7 @@ export class DocumentParser {
 		const stream = this.#stream;
 		const current = stream.current();
 		const next = stream.peek(1);
-		return current !== null && next !== null && current.type === TokenType.Identifier && next.type === TokenType.Identifier && current.range.startLine === next.range.startLine;
+		return current !== null && next !== null && current.type === TokenType.Identifier && next.type === TokenType.Identifier && current.span.start.line === next.span.start.line;
 	}
 	//#endregion
 	//#region Function declaration
@@ -58,10 +58,10 @@ export class DocumentParser {
 		const params = reader.readParams();
 		const retType = reader.readType();
 
-		const bodyStart = stream.current()?.range.startLine ?? 0;
+		const bodyStart = stream.current()?.span.start.line ?? 0;
 		const bodyEnd = stream.findMatchingBrace();
 
-		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, nameToken.range.startLine, bodyEnd, "@Workspace"));
+		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, nameToken.span.start.line, bodyEnd, "@Workspace"));
 
 		const bodyOpen = stream.current();
 		if (bodyOpen === null || !(bodyOpen.type === TokenType.Bracket && bodyOpen.value === "{")) return;
@@ -106,7 +106,7 @@ export class DocumentParser {
 		}
 
 		if (token.type === TokenType.Bracket && token.value === "{") {
-			const blockStart = token.range.startLine;
+			const blockStart = token.span.start.line;
 			const blockEnd = stream.findMatchingBrace();
 			stream.advance();
 			this.#readBlock([], blockStart, blockEnd);
@@ -171,7 +171,7 @@ export class DocumentParser {
 			? stream.findMatchingBrace()
 			: scopeEnd;
 
-		if (!String.isEmpty(name)) this.#table.addVariable(new VariableDefinition(name, typeName, bodyToken?.range.startLine ?? 0, bodyEnd));
+		if (!String.isEmpty(name)) this.#table.addVariable(new VariableDefinition(name, typeName, bodyToken?.span.start.line ?? 0, bodyEnd));
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
@@ -190,7 +190,7 @@ export class DocumentParser {
 			this.#skipToSemicolon();
 		}
 
-		this.#table.addVariable(new VariableDefinition(nameToken.value, typeName, nameToken.range.startLine, scopeEnd));
+		this.#table.addVariable(new VariableDefinition(nameToken.value, typeName, nameToken.span.start.line, scopeEnd));
 	}
 	//#endregion
 	//#region Utilities

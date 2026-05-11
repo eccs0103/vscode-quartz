@@ -41,7 +41,7 @@ export class TokenStream {
 			if (token.type === TokenType.Bracket && token.value === "{") depth++;
 			else if (token.type === TokenType.Bracket && token.value === "}") {
 				depth--;
-				if (depth === 0) return token.range.endLine;
+				if (depth === 0) return token.span.end.line;
 			}
 		}
 		return Number.MAX_SAFE_INTEGER;

@@ -1,6 +1,7 @@
 "use strict";
 
 import "adaptive-extender/node";
+import { Span } from "./span.js";
 
 //#region Token types
 export enum TokenType {
@@ -14,30 +15,18 @@ export enum TokenType {
 	Separator = "Separator",
 	EndOfFile = "EndOfFile"
 }
+//#endregion
 
-export class TokenRange {
-	startLine: number;
-	startColumn: number;
-	endLine: number;
-	endColumn: number;
-
-	constructor(startLine: number, startColumn: number, endLine: number, endColumn: number) {
-		this.startLine = startLine;
-		this.startColumn = startColumn;
-		this.endLine = endLine;
-		this.endColumn = endColumn;
-	}
-}
-
+//#region Token
 export class Token {
 	type: TokenType;
 	value: string;
-	range: TokenRange;
+	span: Span;
 
-	constructor(type: TokenType, value: string, range: TokenRange) {
+	constructor(type: TokenType, value: string, span: Span) {
 		this.type = type;
 		this.value = value;
-		this.range = range;
+		this.span = span;
 	}
 }
 //#endregion
