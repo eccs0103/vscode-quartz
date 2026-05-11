@@ -93,12 +93,18 @@ class BackwardScanner {
 
 //#region Type step
 class StepState {
-	name: string;
-	substitution: Map<string, string>;
+	#name: string;
+	#substitution: Map<string, string>;
 
 	constructor(name: string, substitution: Map<string, string>) {
-		this.name = name;
-		this.substitution = substitution;
+		this.#name = name;
+		this.#substitution = substitution;
+	}
+
+	get name(): string { return this.#name; }
+
+	applyTo(typeName: string): string {
+		return TypeResolver.mapWith(typeName, this.#substitution);
 	}
 }
 //#endregion
@@ -154,30 +160,27 @@ export class TypeResolver {
 			visited.add(step.name);
 			const typeDefinition = runtimeTable.getType(step.name);
 			if (typeDefinition === undefined) break;
-			const substitution: Map<string, string> = step.substitution;
 
 			for (const method of typeDefinition.methods) {
 				const { name, parameters, returnType } = method;
 				const key = `${name}/${parameters.map(p => p.typeName).join(",")}`;
 				if (seenMethod.has(key)) continue;
 				seenMethod.add(key);
-				const mappedParams = substitution.size === 0 ? parameters : parameters.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution)));
-				const mappedReturn = substitution.size === 0 ? returnType : TypeResolver.mapWith(returnType, substitution);
-				methods.push(new FunctionDefinition(name, mappedParams, mappedReturn, step.name));
+				methods.push(new FunctionDefinition(name, parameters.map(parameter => new ParameterDefinition(parameter.name, step.applyTo(parameter.typeName))), step.applyTo(returnType), step.name));
 			}
 
 			for (const field of typeDefinition.fields) {
 				const { name, typeName } = field;
 				if (seenField.has(name)) continue;
 				seenField.add(name);
-				fields.push(substitution.size === 0 ? field : new FieldDefinition(name, TypeResolver.mapWith(typeName, substitution)));
+				fields.push(new FieldDefinition(name, step.applyTo(typeName)));
 			}
 
 			if (typeDefinition.parent === undefined) break;
 			const { base, typeArgs } = TypeResolver.toGeneric(typeDefinition.parent);
 			const baseType = runtimeTable.getType(base);
 			if (baseType === undefined) break;
-			step = new StepState(base, TypeResolver.toSubstitution(baseType.typeParams, typeArgs.map(word => TypeResolver.mapWith(word, substitution))));
+			step = new StepState(base, TypeResolver.toSubstitution(baseType.typeParams, typeArgs.map(word => step.applyTo(word))));
 		}
 
 		const result = new MemberSet(methods, fields);
@@ -210,7 +213,7 @@ export class TypeResolver {
 			const typeDefinition = context.findType(base);
 			if (typeDefinition === undefined) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-			const { methods } = this.getAllMembers(base, context.runtimeTable());
+			const { methods } = this.getAllMembers(base, context.runtimeTable);
 			const indexOp = methods.find(entry => entry.name === "[]" && entry.parameters.length === 1);
 			if (indexOp === undefined) return null;
 			return TypeResolver.mapWith(indexOp.returnType, substitution);
@@ -237,13 +240,13 @@ export class TypeResolver {
 			const typeDefinition = context.findType(base);
 			if (typeDefinition === undefined) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-			const members = this.getAllMembers(base, context.runtimeTable());
+			const members = this.getAllMembers(base, context.runtimeTable);
 			if (isCall) {
-				const method = members.methods.find(entry => entry.name === name && !entry.name.startsWith("["));
+				const method = members.findMethod(name);
 				if (method === undefined) return null;
 				return TypeResolver.mapWith(method.returnType, substitution);
 			}
-			const field = members.fields.find(entry => entry.name === name);
+			const field = members.findField(name);
 			if (field === undefined) return null;
 			return TypeResolver.mapWith(field.typeName, substitution);
 		}
@@ -276,7 +279,7 @@ export class TypeResolver {
 		const typeDef = context.findType(base);
 		if (typeDef === undefined) return this.typeAt(closeParen, context);
 		const substitution = TypeResolver.toSubstitution(typeDef.typeParams, typeArgs);
-		const { methods } = this.getAllMembers(base, context.runtimeTable());
+		const { methods } = this.getAllMembers(base, context.runtimeTable);
 		const binaryMethods = methods.filter(m => m.name === `[${operator}]` && m.parameters.length > 0);
 		if (binaryMethods.length === 0) return this.typeAt(closeParen, context);
 

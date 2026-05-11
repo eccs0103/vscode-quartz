@@ -10,14 +10,22 @@ import { OverloadPicker } from "./overload-picker.js";
 
 //#region Call context
 class CallContext {
-	name: string;
-	nameEndInText: number;
-	activeParameter: number;
+	#name: string;
+	#nameEndInText: number;
+	#activeParameter: number;
 
 	constructor(name: string, nameEndInText: number, activeParameter: number) {
-		this.name = name;
-		this.nameEndInText = nameEndInText;
-		this.activeParameter = activeParameter;
+		this.#name = name;
+		this.#nameEndInText = nameEndInText;
+		this.#activeParameter = activeParameter;
+	}
+
+	get name(): string { return this.#name; }
+	get nameEndInText(): number { return this.#nameEndInText; }
+	get activeParameter(): number { return this.#activeParameter; }
+
+	filterOverloads(overloads: FunctionDefinition[]): FunctionDefinition[] {
+		return overloads.filter(entry => entry.name === this.#name && !entry.name.startsWith("["));
 	}
 }
 //#endregion
@@ -60,7 +68,7 @@ export class SignatureService {
 			const typeDefinition = symbolService.getType(base);
 			const substitution = TypeResolver.toSubstitution(typeDefinition?.typeParams ?? [], typeArgs);
 			const { methods } = symbolService.getAllMembers(base);
-			const matching = methods.filter(method => method.name === name && !method.name.startsWith('['));
+			const matching = context.filterOverloads(methods);
 			if (matching.length === 0) return null;
 			const declType = matching[0].declaringType ?? base;
 			ownerType = (declType === base) ? receiverType : declType;
@@ -70,7 +78,7 @@ export class SignatureService {
 				TypeResolver.mapWith(method.returnType, substitution)
 			));
 		} else {
-			const runtime = symbolService.runtimeTable();
+			const runtime = symbolService.runtimeTable;
 			const rawOverloads = runtime.getFunctions(name) ?? documentTable.getFunctions(name);
 			if (rawOverloads === undefined || rawOverloads.length === 0) return null;
 			ownerType = rawOverloads[0].declaringType;
@@ -114,7 +122,7 @@ export class SignatureService {
 
 	#makeSignature(callable: FunctionDefinition, ownerType: string | undefined): SignatureInformation {
 		const prefix = ownerType !== undefined ? `${ownerType}.` : '';
-		const paramStrings = callable.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`);
+		const paramStrings = callable.parameters.map(parameter => parameter.format());
 		const label = `${prefix}${callable.name}(${paramStrings.join(', ')}) ${callable.returnType}`;
 		let charOffset = prefix.length + callable.name.length + 1;
 		const parameters: ParameterInformation[] = paramStrings.map((param, index) => {

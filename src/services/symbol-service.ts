@@ -71,9 +71,7 @@ export class SymbolService {
 		return this.#runtimeTable.getType(name);
 	}
 
-	runtimeTable(): SymbolTable {
-		return this.#runtimeTable;
-	}
+	get runtimeTable(): SymbolTable { return this.#runtimeTable; }
 
 	#addWorkspaceGlobals(): void {
 		const runtimeTable = this.#runtimeTable;

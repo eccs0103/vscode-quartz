@@ -125,10 +125,10 @@ export class HoverService {
 		const typeDefinition = symbolService.getType(word) ?? documentTable.getType(word);
 		if (typeDefinition !== undefined) {
 			const memberLines: string[] = [];
-			for (const { name, typeName } of typeDefinition.fields) memberLines.push(`  ${name} ${typeName}`);
+			for (const field of typeDefinition.fields) memberLines.push(`  ${field.format()}`);
 			for (const { name, parameters, returnType } of typeDefinition.methods) {
 				if (name.startsWith("[")) continue;
-				memberLines.push(`  ${name}(${parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${returnType}`);
+				memberLines.push(`  ${name}(${parameters.map(parameter => parameter.format()).join(", ")}) ${returnType}`);
 			}
 			const typeParamString = typeDefinition.typeParams.length > 0 ? `<${typeDefinition.typeParams.join(", ")}>` : String.empty;
 			const header = typeDefinition.parent !== undefined ? `${typeDefinition.name}${typeParamString} from ${typeDefinition.parent}` : `${typeDefinition.name}${typeParamString}`;
@@ -136,13 +136,13 @@ export class HoverService {
 			return this.#toHover(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 
-		const runtime = symbolService.runtimeTable();
+		const runtime = symbolService.runtimeTable;
 		const allOverloads = [...(runtime.getFunctions(word) ?? []), ...(documentTable.getFunctions(word) ?? [])];
 		if (allOverloads.length > 0) {
 			const argCount = OverloadPicker.argsAt(text, wordEnd);
 			const resolved = allOverloads[OverloadPicker.pickFor(allOverloads.map(overload => overload.parameters.length), argCount)];
 			const prefix = resolved.declaringType !== undefined ? `${resolved.declaringType}.` : '';
-			const signature = `${prefix}${resolved.name}(${resolved.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${resolved.returnType}`;
+			const signature = `${prefix}${resolved.name}(${resolved.parameters.map(parameter => parameter.format()).join(", ")}) ${resolved.returnType}`;
 			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(allOverloads.length)}`);
 		}
 
@@ -224,7 +224,7 @@ export class HoverService {
 	}
 
 	static #fmtParams(parameters: ParameterDefinition[], substitution: Map<string, string>): string {
-		return parameters.map(p => `${p.name} ${TypeResolver.mapWith(p.typeName, substitution)}`).join(", ");
+		return parameters.map(p => new ParameterDefinition(p.name, TypeResolver.mapWith(p.typeName, substitution)).format()).join(", ");
 	}
 
 	#toHover(value: string, range?: Span): Hover {

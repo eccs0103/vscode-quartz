@@ -85,7 +85,7 @@ export class CompletionService {
 
 	#getContextItems(position: Position, documentTable: SymbolTable): CompletionItem[] {
 		const symbolService = this.#symbolService;
-		const runtime = symbolService.runtimeTable();
+		const runtime = symbolService.runtimeTable;
 		const builder = new CompletionBuilder();
 
 		for (const keyword of LanguageKeywords.values()) builder.add(keyword, CompletionItemKind.Keyword, "keyword");

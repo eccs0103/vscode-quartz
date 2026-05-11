@@ -63,38 +63,38 @@ class LanguageServer extends Controller {
 	#sendDiagnostics(document: TextDocument): void {
 		const connection = this.#connection;
 		const uri = document.uri;
-		const diagnostics = this.#services.validationService().validate(document);
+		const diagnostics = this.#services.validationService.validate(document);
 		connection.sendDiagnostics({ uri, diagnostics });
 	}
 
 	#onCompletion(params: CompletionParams): CompletionItem[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#services.completionService().getCompletions(document, params.position);
+		return this.#services.completionService.getCompletions(document, params.position);
 	}
 
 	#onSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return null;
-		return this.#services.signatureService().getSignatureHelp(document, params.position);
+		return this.#services.signatureService.getSignatureHelp(document, params.position);
 	}
 
 	#onHover(params: HoverParams): Hover | null {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return null;
-		return this.#services.hoverService().getHover(document, params.position);
+		return this.#services.hoverService.getHover(document, params.position);
 	}
 
 	#onDocumentFormatting(params: DocumentFormattingParams): TextEdit[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#services.formattingService().getEdits(document);
+		return this.#services.formattingService.getEdits(document);
 	}
 
 	#onFoldingRanges(params: FoldingRangeParams): FoldingRange[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#services.foldingService().getRanges(document);
+		return this.#services.foldingService.getRanges(document);
 	}
 }
 //#endregion

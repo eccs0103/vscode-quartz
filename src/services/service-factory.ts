@@ -30,13 +30,13 @@ export class ServiceBundle {
 		this.#foldingService = foldingService;
 	}
 
-	symbolService(): SymbolService { return this.#symbolService; }
-	completionService(): CompletionService { return this.#completionService; }
-	hoverService(): HoverService { return this.#hoverService; }
-	signatureService(): SignatureService { return this.#signatureService; }
-	validationService(): ValidationService { return this.#validationService; }
-	formattingService(): FormattingService { return this.#formattingService; }
-	foldingService(): FoldingService { return this.#foldingService; }
+	get symbolService(): SymbolService { return this.#symbolService; }
+	get completionService(): CompletionService { return this.#completionService; }
+	get hoverService(): HoverService { return this.#hoverService; }
+	get signatureService(): SignatureService { return this.#signatureService; }
+	get validationService(): ValidationService { return this.#validationService; }
+	get formattingService(): FormattingService { return this.#formattingService; }
+	get foldingService(): FoldingService { return this.#foldingService; }
 
 	initialize(workspaceFolders: WorkspaceFolder[]): void {
 		this.#symbolService.initialize(workspaceFolders);
