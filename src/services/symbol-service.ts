@@ -11,6 +11,7 @@ import { TypeDefinition, FunctionDefinition, VariableDefinition } from "../model
 import { MemberSet } from "../models/type-members.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
+import { ResolutionContext } from "./resolution-context.js";
 
 //#region Doc cache entry
 class DocCacheEntry {
@@ -63,7 +64,7 @@ export class SymbolService {
 	}
 
 	typeAt(text: string, end: number, line: number, documentTable: SymbolTable): string | null {
-		return this.#resolver.typeAt(text, end, line, this.#runtimeTable, documentTable);
+		return this.#resolver.typeAt(end, new ResolutionContext(text, line, this.#runtimeTable, documentTable));
 	}
 
 	getType(name: string): TypeDefinition | undefined {

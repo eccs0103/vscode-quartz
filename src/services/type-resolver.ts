@@ -4,6 +4,92 @@ import "adaptive-extender/node";
 import { FieldDefinition, FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
 import { GenericType, MemberSet } from "../models/type-members.js";
 import { SymbolTable } from "./symbol-table.js";
+import { ResolutionContext } from "./resolution-context.js";
+
+//#region Backward scanner
+class BackwardScanner {
+	static #patternIdentifierChar: RegExp = /[A-Za-z_0-9]/;
+	static #patternOperatorChar: RegExp = /[^ \t\n\r()\[\]"'A-Za-z_0-9]/;
+
+	#text: string;
+	#cursor: number;
+
+	constructor(text: string, cursor: number) {
+		this.#text = text;
+		this.#cursor = cursor;
+	}
+
+	get cursor(): number { return this.#cursor; }
+	get char(): string { return this.#text[this.#cursor]; }
+	get isValid(): boolean { return this.#cursor >= 0; }
+
+	isIdentifierChar(): boolean {
+		return this.#cursor >= 0 && BackwardScanner.#patternIdentifierChar.test(this.#text[this.#cursor]);
+	}
+
+	isAt(char: string): boolean {
+		return this.#cursor >= 0 && this.#text[this.#cursor] === char;
+	}
+
+	matches(pattern: RegExp): boolean {
+		return this.#cursor >= 0 && pattern.test(this.#text[this.#cursor]);
+	}
+
+	skipWhitespace(): void {
+		while (this.#cursor >= 0 && (this.#text[this.#cursor] === " " || this.#text[this.#cursor] === "\t")) this.#cursor--;
+	}
+
+	skipIdentifier(): void {
+		while (this.#cursor >= 0 && BackwardScanner.#patternIdentifierChar.test(this.#text[this.#cursor])) this.#cursor--;
+	}
+
+	skipPaired(close: string, open: string): void {
+		let depth = 1;
+		this.#cursor--;
+		while (this.#cursor >= 0 && depth > 0) {
+			if (this.#text[this.#cursor] === close) depth++;
+			else if (this.#text[this.#cursor] === open) depth--;
+			this.#cursor--;
+		}
+	}
+
+	skipValue(): void {
+		if (!this.isValid) return;
+		const ch = this.#text[this.#cursor];
+		if (ch === ")") { this.skipPaired(")", "("); this.skipIdentifier(); return; }
+		if (ch === "]") { this.skipPaired("]", "["); this.skipIdentifier(); return; }
+		if (ch === '"') {
+			this.#cursor--;
+			while (this.#cursor >= 0 && !(this.#text[this.#cursor] === '"' && (this.#cursor === 0 || this.#text[this.#cursor - 1] !== "\\"))) this.#cursor--;
+			this.#cursor--;
+			return;
+		}
+		if (ch === "'") {
+			this.#cursor--;
+			while (this.#cursor >= 0 && this.#text[this.#cursor] !== "'") this.#cursor--;
+			this.#cursor--;
+			return;
+		}
+		this.skipIdentifier();
+	}
+
+	readIdentifier(): string {
+		const end = this.#cursor;
+		this.skipIdentifier();
+		return this.#text.slice(this.#cursor + 1, end + 1);
+	}
+
+	readOperator(): string {
+		const exclusiveEnd = this.#cursor + 1;
+		while (this.#cursor >= 0 && BackwardScanner.#patternOperatorChar.test(this.#text[this.#cursor])) this.#cursor--;
+		return this.#text.slice(this.#cursor + 1, exclusiveEnd);
+	}
+
+	static isIdentChar(ch: string): boolean {
+		return BackwardScanner.#patternIdentifierChar.test(ch);
+	}
+}
+//#endregion
 
 //#region Type step
 class StepState {
@@ -20,7 +106,6 @@ class StepState {
 //#region Type resolver
 export class TypeResolver {
 	static #patternTypeWord: RegExp = /\b[A-Za-z_]\w*\b/g;
-	static #patternIdentifierChar: RegExp = /[A-Za-z_0-9]/;
 
 	#memberCache: Map<string, MemberSet> = new Map();
 
@@ -52,10 +137,6 @@ export class TypeResolver {
 		const pattern = TypeResolver.#patternTypeWord;
 		pattern.lastIndex = 0;
 		return typeName.replace(pattern, word => substitution.get(word) ?? word);
-	}
-
-	static #isIdentifierChar(value: string): boolean {
-		return TypeResolver.#patternIdentifierChar.test(value);
 	}
 
 	getAllMembers(baseTypeName: string, runtimeTable: SymbolTable): MemberSet {
@@ -104,74 +185,59 @@ export class TypeResolver {
 		return result;
 	}
 
-	typeAt(text: string, end: number, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
-		let cursor = end - 1;
-		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-		if (cursor < 0) return null;
+	typeAt(end: number, context: ResolutionContext): string | null {
+		const scanner = new BackwardScanner(context.text, end - 1);
+		scanner.skipWhitespace();
+		if (!scanner.isValid) return null;
 
-		if (text[cursor] === ")") {
-			const endParen = cursor;
-			let depth = 1;
-			cursor--;
-			while (cursor >= 0 && depth > 0) {
-				if (text[cursor] === ")") depth++;
-				else if (text[cursor] === "(") depth--;
-				cursor--;
+		if (scanner.isAt(")")) {
+			const endParen = scanner.cursor;
+			scanner.skipPaired(")", "(");
+			scanner.skipWhitespace();
+			if (!scanner.isValid || !scanner.isIdentifierChar()) {
+				if (scanner.isAt(">")) return this.#typeFromGeneric(context.text, scanner.cursor);
+				return this.#typeOfGroup(endParen, context);
 			}
-			while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-			if (cursor < 0 || !TypeResolver.#isIdentifierChar(text[cursor])) {
-				if (cursor >= 0 && text[cursor] === ">") return this.#typeFromGeneric(text, cursor);
-				return this.#typeOfGroup(text, endParen, line, runtimeTable, docTable);
-			}
-			const nameEnd = cursor;
-			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
-			const name = text.slice(cursor + 1, nameEnd + 1);
-			return this.#typeForName(text, cursor, name, true, line, runtimeTable, docTable);
+			const name = scanner.readIdentifier();
+			return this.#typeForName(scanner.cursor, name, true, context);
 		}
 
-		if (text[cursor] === "]") {
-			let depth = 1;
-			cursor--;
-			while (cursor >= 0 && depth > 0) {
-				if (text[cursor] === "]") depth++;
-				else if (text[cursor] === "[") depth--;
-				cursor--;
-			}
-			const indexeeType = this.typeAt(text, cursor + 1, line, runtimeTable, docTable);
+		if (scanner.isAt("]")) {
+			scanner.skipPaired("]", "[");
+			const indexeeType = this.typeAt(scanner.cursor + 1, context);
 			if (indexeeType === null) return null;
 			const { base, typeArgs } = TypeResolver.toGeneric(indexeeType);
-			const typeDefinition = runtimeTable.getType(base);
+			const typeDefinition = context.findType(base);
 			if (typeDefinition === undefined) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-			const { methods } = this.getAllMembers(base, runtimeTable);
+			const { methods } = this.getAllMembers(base, context.runtimeTable());
 			const indexOp = methods.find(entry => entry.name === "[]" && entry.parameters.length === 1);
 			if (indexOp === undefined) return null;
 			return TypeResolver.mapWith(indexOp.returnType, substitution);
 		}
 
-		if (TypeResolver.#isIdentifierChar(text[cursor])) {
-			const nameEnd = cursor;
-			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
-			const name = text.slice(cursor + 1, nameEnd + 1);
-			return this.#typeForName(text, cursor, name, false, line, runtimeTable, docTable);
+		if (scanner.isIdentifierChar()) {
+			const name = scanner.readIdentifier();
+			return this.#typeForName(scanner.cursor, name, false, context);
 		}
 
-		if (text[cursor] === ">") return this.#typeFromGeneric(text, cursor);
-		if (text[cursor] === '"') return "String";
-		if (text[cursor] === "'") return "Character";
+		if (scanner.isAt(">")) return this.#typeFromGeneric(context.text, scanner.cursor);
+		if (scanner.isAt('"')) return "String";
+		if (scanner.isAt("'")) return "Character";
 		return null;
 	}
 
-	#typeForName(text: string, cursor: number, name: string, isCall: boolean, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
-		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-		if (cursor >= 0 && text[cursor] === ".") {
-			const receiverType = this.typeAt(text, cursor, line, runtimeTable, docTable);
+	#typeForName(cursorBefore: number, name: string, isCall: boolean, context: ResolutionContext): string | null {
+		const scanner = new BackwardScanner(context.text, cursorBefore);
+		scanner.skipWhitespace();
+		if (scanner.isAt(".")) {
+			const receiverType = this.typeAt(scanner.cursor, context);
 			if (receiverType === null) return null;
 			const { base, typeArgs } = TypeResolver.toGeneric(receiverType);
-			const typeDefinition = runtimeTable.getType(base);
+			const typeDefinition = context.findType(base);
 			if (typeDefinition === undefined) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-			const members = this.getAllMembers(base, runtimeTable);
+			const members = this.getAllMembers(base, context.runtimeTable());
 			if (isCall) {
 				const method = members.methods.find(entry => entry.name === name && !entry.name.startsWith("["));
 				if (method === undefined) return null;
@@ -182,95 +248,47 @@ export class TypeResolver {
 			return TypeResolver.mapWith(field.typeName, substitution);
 		}
 		if (isCall) {
-			const fnOverloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
-			if (fnOverloads !== undefined && fnOverloads.length > 0) return fnOverloads[0].returnType;
+			const overloads = context.findFunctions(name);
+			if (overloads !== undefined && overloads.length > 0) return overloads[0].returnType;
 		}
-		return this.#typeOf(name, line, runtimeTable, docTable);
+		return this.#typeOf(name, context);
 	}
 
-	#typeOfGroup(text: string, closeParen: number, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
-		let cursor = closeParen - 1;
-		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-		if (cursor < 0) return null;
+	#typeOfGroup(closeParen: number, context: ResolutionContext): string | null {
+		const scanner = new BackwardScanner(context.text, closeParen - 1);
+		scanner.skipWhitespace();
+		if (!scanner.isValid) return null;
 
-		cursor = this.#skipValueBackward(text, cursor);
-		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-		if (cursor < 0) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		scanner.skipValue();
+		scanner.skipWhitespace();
+		if (!scanner.isValid) return this.typeAt(closeParen, context);
 
-		if (TypeResolver.#isIdentifierChar(text[cursor]) || /[()\[\]"']/.test(text[cursor])) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		if (scanner.isIdentifierChar() || /[()\[\]"']/.test(scanner.char)) return this.typeAt(closeParen, context);
 
-		const opEnd = cursor + 1;
-		while (cursor >= 0 && !TypeResolver.#isIdentifierChar(text[cursor]) && !/[()\[\]"' \t\n\r]/.test(text[cursor])) cursor--;
-		const opStart = cursor + 1;
-		const operator = text.slice(opStart, opEnd);
+		const operator = scanner.readOperator();
+		if (operator === "." || operator === ":" || operator === ";" || operator.length === 0) return this.typeAt(closeParen, context);
 
-		if (operator === "." || operator === ":" || operator === ";" || operator.length === 0) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
-
-		const leftType = this.typeAt(text, opStart, line, runtimeTable, docTable);
-		if (leftType === null) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		const opStart = scanner.cursor + 1;
+		const leftType = this.typeAt(opStart, context);
+		if (leftType === null) return this.typeAt(closeParen, context);
 
 		const { base, typeArgs } = TypeResolver.toGeneric(leftType);
-		const typeDef = runtimeTable.getType(base);
-		if (typeDef === undefined) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		const typeDef = context.findType(base);
+		if (typeDef === undefined) return this.typeAt(closeParen, context);
 		const substitution = TypeResolver.toSubstitution(typeDef.typeParams, typeArgs);
-		const { methods } = this.getAllMembers(base, runtimeTable);
+		const { methods } = this.getAllMembers(base, context.runtimeTable());
 		const binaryMethods = methods.filter(m => m.name === `[${operator}]` && m.parameters.length > 0);
-		if (binaryMethods.length === 0) return this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		if (binaryMethods.length === 0) return this.typeAt(closeParen, context);
 
-		const rightType = this.typeAt(text, closeParen, line, runtimeTable, docTable);
+		const rightType = this.typeAt(closeParen, context);
 		const matched = (rightType !== null
 			? binaryMethods.find(m => TypeResolver.mapWith(m.parameters[0].typeName, substitution) === rightType)
 			: undefined) ?? binaryMethods[0];
 		return TypeResolver.mapWith(matched.returnType, substitution);
 	}
 
-	#skipValueBackward(text: string, cursor: number): number {
-		if (cursor < 0) return cursor;
-		const ch = text[cursor];
-
-		if (ch === ")") {
-			let depth = 1;
-			cursor--;
-			while (cursor >= 0 && depth > 0) {
-				if (text[cursor] === ")") depth++;
-				else if (text[cursor] === "(") depth--;
-				cursor--;
-			}
-			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
-			return cursor;
-		}
-
-		if (ch === "]") {
-			let depth = 1;
-			cursor--;
-			while (cursor >= 0 && depth > 0) {
-				if (text[cursor] === "]") depth++;
-				else if (text[cursor] === "[") depth--;
-				cursor--;
-			}
-			while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
-			return cursor;
-		}
-
-		if (ch === '"') {
-			cursor--;
-			while (cursor >= 0 && !(text[cursor] === '"' && (cursor === 0 || text[cursor - 1] !== "\\"))) cursor--;
-			cursor--;
-			return cursor;
-		}
-
-		if (ch === "'") {
-			cursor--;
-			while (cursor >= 0 && text[cursor] !== "'") cursor--;
-			cursor--;
-			return cursor;
-		}
-
-		while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
-		return cursor;
-	}
-
-	#typeFromGeneric(text: string, cursor: number): string | null {
+	#typeFromGeneric(text: string, startCursor: number): string | null {
+		let cursor = startCursor;
 		const typeEnd = cursor;
 		let depth = 1;
 		cursor--;
@@ -280,21 +298,21 @@ export class TypeResolver {
 			cursor--;
 		}
 		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-		if (cursor < 0 || !TypeResolver.#isIdentifierChar(text[cursor])) return null;
+		if (cursor < 0 || !BackwardScanner.isIdentChar(text[cursor])) return null;
 		const nameEnd = cursor;
-		while (cursor >= 0 && TypeResolver.#isIdentifierChar(text[cursor])) cursor--;
+		while (cursor >= 0 && BackwardScanner.isIdentChar(text[cursor])) cursor--;
 		return text.slice(cursor + 1, typeEnd + 1).replace(/\s+/g, "");
 	}
 
-	#typeOf(name: string, line: number, runtimeTable: SymbolTable, docTable: SymbolTable): string | null {
+	#typeOf(name: string, context: ResolutionContext): string | null {
 		if (name === "true" || name === "false") return "Boolean";
 		if (name === "null") return "Null";
 		if (name.length > 0 && name[0] >= "0" && name[0] <= "9") return "Number";
-		const variable = runtimeTable.findVariableAt(name, line) ?? docTable.findVariableAt(name, line);
+		const variable = context.findVariable(name);
 		if (variable !== undefined) return variable.typeName;
-		const overloads = runtimeTable.getFunctions(name) ?? docTable.getFunctions(name);
+		const overloads = context.findFunctions(name);
 		if (overloads !== undefined && overloads.length > 0) return "Function";
-		const typeDefinition = runtimeTable.getType(name);
+		const typeDefinition = context.findType(name);
 		if (typeDefinition !== undefined && !typeDefinition.isTemplate) return name;
 		return null;
 	}
