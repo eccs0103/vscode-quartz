@@ -1,3 +1,20 @@
+## 0.6.0 (12.05.2026)
+- Internal architecture full refactoring — no user-facing changes.
+
+## 0.5.2 (11.05.2026)
+- Hovering over an operator (`+`, `-`, `*`, `/`, `!`, etc.) now shows the operator method signature and result type (e.g. `Number.[+](Number) Number`).
+- Hovering over a string, number, or character literal now shows its type (`String`, `Number`, `Character`).
+- Hover for `true`, `false`, and `null` now shows `Boolean` and `Null` instead of verbose keyword descriptions.
+- Hover highlight now covers only the hovered token, not the whole word.
+- Fixed: type inference for parenthesized binary expressions — e.g. `(a + b).method()` now correctly identifies the left-hand type.
+- Performance: document symbol tables are now cached per document version; type member sets are cached — the editor is more responsive on larger files.
+
+## 0.5.1 (07.05.2026)
+- **Breaking:** Built-in definitions are now read from `system.header.qrz` (renamed from `runtime.header.qrz`). Rename the file in the project root.
+- **Breaking:** The special workspace type in the header file must now be named `@Workspace` (PascalCase, was `workspace`).
+- Fixed: variable declarations spanning multiple lines were incorrectly recognised — now detected only within a single line.
+- Completion: global variables from `@Workspace` now show their declaring type in the hint detail (e.g. `@Workspace.name String`).
+
 ## 0.5.0 (27.04.2026)
 - Added function signature hints: when calling a function, a tooltip shows the expected parameter list and highlights the active one.
 - Auto-completion after `.` now shows only the methods and fields of the actual type, instead of all available symbols.
