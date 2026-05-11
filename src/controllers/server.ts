@@ -4,13 +4,7 @@ import "adaptive-extender/node";
 import { Controller } from "adaptive-extender/node";
 import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type SignatureHelpParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange, SignatureHelp } from "vscode-languageserver/node.js";
 import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";
-import { SymbolService } from "../services/symbol-service.js";
-import { ValidationService } from "../view/validation-service.js";
-import { CompletionService } from "../services/completion-service.js";
-import { HoverService } from "../services/hover-service.js";
-import { FormattingService } from "../view/formatting-service.js";
-import { FoldingService } from "../view/folding-service.js";
-import { SignatureService } from "../services/signature-service.js";
+import { ServiceFactory, ServiceBundle } from "../services/service-factory.js";
 
 //#region Language server
 class LanguageServer extends Controller {
@@ -18,23 +12,11 @@ class LanguageServer extends Controller {
 	#documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 	#hasConfigCapability = false;
 	#workspaceFolders: WorkspaceFolder[] | null = null;
-	#symbolService: SymbolService;
-	#validationService: ValidationService;
-	#completionService: CompletionService;
-	#hoverService: HoverService;
-	#formattingService: FormattingService;
-	#foldingService: FoldingService;
-	#signatureService: SignatureService;
+	#services: ServiceBundle;
 
 	constructor() {
 		super();
-		this.#symbolService = new SymbolService();
-		this.#validationService = new ValidationService();
-		this.#completionService = new CompletionService(this.#symbolService);
-		this.#hoverService = new HoverService(this.#symbolService);
-		this.#formattingService = new FormattingService();
-		this.#foldingService = new FoldingService();
-		this.#signatureService = new SignatureService(this.#symbolService);
+		this.#services = ServiceFactory.create();
 	}
 
 	async run(): Promise<void> {
@@ -75,44 +57,44 @@ class LanguageServer extends Controller {
 		const connection = this.#connection;
 		const workspaceFolders = this.#workspaceFolders;
 		if (this.#hasConfigCapability) connection.client.register(DidChangeConfigurationNotification.type, undefined);
-		if (workspaceFolders !== null) this.#symbolService.initialize(workspaceFolders);
+		if (workspaceFolders !== null) this.#services.initialize(workspaceFolders);
 	}
 
 	#sendDiagnostics(document: TextDocument): void {
 		const connection = this.#connection;
 		const uri = document.uri;
-		const diagnostics = this.#validationService.validate(document);
+		const diagnostics = this.#services.validationService().validate(document);
 		connection.sendDiagnostics({ uri, diagnostics });
 	}
 
 	#onCompletion(params: CompletionParams): CompletionItem[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#completionService.getCompletions(document, params.position);
+		return this.#services.completionService().getCompletions(document, params.position);
 	}
 
 	#onSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return null;
-		return this.#signatureService.getSignatureHelp(document, params.position);
+		return this.#services.signatureService().getSignatureHelp(document, params.position);
 	}
 
 	#onHover(params: HoverParams): Hover | null {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return null;
-		return this.#hoverService.getHover(document, params.position);
+		return this.#services.hoverService().getHover(document, params.position);
 	}
 
 	#onDocumentFormatting(params: DocumentFormattingParams): TextEdit[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#formattingService.getEdits(document);
+		return this.#services.formattingService().getEdits(document);
 	}
 
 	#onFoldingRanges(params: FoldingRangeParams): FoldingRange[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#foldingService.getRanges(document);
+		return this.#services.foldingService().getRanges(document);
 	}
 }
 //#endregion
