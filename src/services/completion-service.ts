@@ -8,6 +8,23 @@ import { SymbolTable } from "./symbol-table.js";
 import { TypeResolver } from "./type-resolver.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 
+//#region Completion builder
+class CompletionBuilder {
+	#items: CompletionItem[] = [];
+	#added: Set<string> = new Set();
+
+	add(label: string, kind: CompletionItemKind, detail: string, documentation?: string): void {
+		if (this.#added.has(label)) return;
+		this.#added.add(label);
+		this.#items.push({ label, kind, detail, documentation });
+	}
+
+	build(): CompletionItem[] {
+		return this.#items;
+	}
+}
+//#endregion
+
 //#region Completion service
 export class CompletionService {
 	static #patternMemberAccess: RegExp = /\.([A-Za-z_]\w*)?$/;
@@ -45,8 +62,7 @@ export class CompletionService {
 
 		const substitution = TypeResolver.toSubstitution(rootType.typeParams, typeArgs);
 		const { methods, fields } = symbolService.getAllMembers(base);
-
-		const items: CompletionItem[] = [];
+		const builder = new CompletionBuilder();
 
 		const methodOverloads = new Map<string, typeof methods>();
 		for (const method of methods) {
@@ -59,49 +75,42 @@ export class CompletionService {
 			const first = overloads[0];
 			const prefix = (first.declaringType === base) ? rawType : (first.declaringType ?? base);
 			const detail = `${prefix}.${label}(${first.parameters.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.returnType, substitution)}`;
-			items.push({ label, kind: CompletionItemKind.Method, detail });
+			builder.add(label, CompletionItemKind.Method, detail);
 		}
 
-		for (const { name: label, typeName } of fields) items.push({ label, kind: CompletionItemKind.Field, detail: TypeResolver.mapWith(typeName, substitution) });
+		for (const { name: label, typeName } of fields) builder.add(label, CompletionItemKind.Field, TypeResolver.mapWith(typeName, substitution));
 
-		return items;
+		return builder.build();
 	}
 
 	#getContextItems(position: Position, documentTable: SymbolTable): CompletionItem[] {
 		const symbolService = this.#symbolService;
 		const runtime = symbolService.runtimeTable();
-		const items: CompletionItem[] = [];
-		const added = new Set<string>();
+		const builder = new CompletionBuilder();
 
-		for (const keyword of LanguageKeywords.values()) this.#addItem(items, added, keyword, CompletionItemKind.Keyword, "keyword");
+		for (const keyword of LanguageKeywords.values()) builder.add(keyword, CompletionItemKind.Keyword, "keyword");
 
 		for (const name of runtime.typeNames()) {
 			if (name === "Workspace") continue;
-			this.#addItem(items, added, name, CompletionItemKind.Class, `class ${name}`);
+			builder.add(name, CompletionItemKind.Class, `class ${name}`);
 		}
 
-		this.#addFunctionItems(items, added, runtime);
-		this.#addFunctionItems(items, added, documentTable);
+		this.#addFunctionItems(builder, runtime);
+		this.#addFunctionItems(builder, documentTable);
 
-		for (const { name, typeName, declaringType } of runtime.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, declaringType !== undefined ? `${declaringType}.${name} ${typeName}` : typeName);
-		for (const { name, typeName } of documentTable.getVariablesAt(position.line)) this.#addItem(items, added, name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName, declaringType } of runtime.getVariablesAt(position.line)) builder.add(name, CompletionItemKind.Variable, declaringType !== undefined ? `${declaringType}.${name} ${typeName}` : typeName);
+		for (const { name, typeName } of documentTable.getVariablesAt(position.line)) builder.add(name, CompletionItemKind.Variable, typeName);
 
-		return items;
+		return builder.build();
 	}
 
-	#addFunctionItems(items: CompletionItem[], added: Set<string>, table: SymbolTable): void {
+	#addFunctionItems(builder: CompletionBuilder, table: SymbolTable): void {
 		for (const [name, overloads] of table.functionEntries()) {
 			const first = overloads[0];
 			const prefix = first.declaringType !== undefined ? `${first.declaringType}.` : '';
 			const detail = `${prefix}${name}(${first.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${first.returnType}`;
-			this.#addItem(items, added, name, CompletionItemKind.Function, detail);
+			builder.add(name, CompletionItemKind.Function, detail);
 		}
-	}
-
-	#addItem(items: CompletionItem[], added: Set<string>, label: string, kind: CompletionItemKind, detail: string, documentation?: string): void {
-		if (added.has(label)) return;
-		added.add(label);
-		items.push({ label, kind, detail, documentation });
 	}
 }
 //#endregion
