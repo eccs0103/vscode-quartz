@@ -73,15 +73,13 @@ export class HoverService {
 		const binaryMethods = methods.filter(method => method.name === methodName && method.params.length > 0);
 		if (binaryMethods.length === 0) return null;
 
-		let selected = binaryMethods;
 		const rightType = this.#typeRightOf(text, rightStart, line, documentTable);
-		if (rightType !== null) {
-			const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.params[0].typeName, substitution) === rightType);
-			if (matched.length > 0) selected = matched;
-		}
+		if (rightType === null) return null;
+		const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.params[0].typeName, substitution) === rightType);
+		if (matched.length === 0) return null;
 
-		const signature = `${leftType}.[${operator}](${HoverService.#fmtParams(selected[0].params, substitution)}) ${TypeResolver.mapWith(selected[0].retType, substitution)}`;
-		return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(selected.length)}`);
+		const signature = `${leftType}.[${operator}](${HoverService.#fmtParams(matched[0].params, substitution)}) ${TypeResolver.mapWith(matched[0].retType, substitution)}`;
+		return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\``);
 	}
 
 	#makeUnaryOpHover(operator: string, methodName: string, rightType: string): Hover | null {
@@ -155,20 +153,28 @@ export class HoverService {
 
 	#typeRightOf(text: string, start: number, line: number, documentTable: SymbolTable): string | null {
 		let cursor = start;
-		while (cursor < text.length && (text[cursor] === " " || text[cursor] === "\t")) cursor++;
+		while (cursor < text.length && (text[cursor] === " " || text[cursor] === "\t" || text[cursor] === "\n" || text[cursor] === "\r")) cursor++;
 		if (cursor >= text.length) return null;
 		if (text[cursor] === '"') return "String";
 		if (text[cursor] === "'") return "Character";
 		if (text[cursor] >= "0" && text[cursor] <= "9") return "Number";
-		if (text[cursor] === "(") {
-			let depth = 1;
+		if (text[cursor] === "-" || text[cursor] === "+" || text[cursor] === "!") {
+			const unaryOp = text[cursor];
 			cursor++;
-			while (cursor < text.length && depth > 0) {
-				if (text[cursor] === "(") depth++;
-				else if (text[cursor] === ")") depth--;
-				cursor++;
-			}
-			return this.#symbolService.typeAt(text, cursor, line, documentTable);
+			const operandType = this.#typeRightOf(text, cursor, line, documentTable);
+			if (operandType === null) return null;
+			const { base, typeArgs } = TypeResolver.toGeneric(operandType);
+			const typeDefinition = this.#symbolService.getType(base);
+			if (typeDefinition === undefined) return null;
+			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
+			const { methods } = this.#symbolService.getAllMembers(base);
+			const unaryMethod = methods.find(m => m.name === `[${unaryOp}]` && m.params.length === 0);
+			if (unaryMethod === undefined) return operandType;
+			return TypeResolver.mapWith(unaryMethod.retType, substitution);
+		}
+		if (text[cursor] === "(") {
+			const exprEnd = this.#scanExprEnd(text, cursor);
+			return this.#symbolService.typeAt(text, exprEnd, line, documentTable);
 		}
 		if (!/[A-Za-z_]/.test(text[cursor])) return null;
 		const nameStart = cursor;
