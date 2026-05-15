@@ -5,15 +5,15 @@ import { Span } from "./span.js";
 
 //#region Token types
 export enum TokenType {
-	Number = "Number",
-	Character = "Character",
-	String = "String",
-	Identifier = "Identifier",
-	Keyword = "Keyword",
-	Operator = "Operator",
-	Bracket = "Bracket",
-	Separator = "Separator",
-	EndOfFile = "EndOfFile"
+	number = "Number",
+	character = "Character",
+	string = "String",
+	identifier = "Identifier",
+	keyword = "Keyword",
+	operator = "Operator",
+	bracket = "Bracket",
+	separator = "Separator",
+	eof = "EndOfFile"
 }
 //#endregion
 

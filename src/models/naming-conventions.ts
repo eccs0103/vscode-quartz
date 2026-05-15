@@ -32,7 +32,7 @@ export class NamingConventions {
 		patternUpper.lastIndex = 0;
 		patternSnakeCleanup.lastIndex = 0;
 		return value
-			.replace(patternUpper, "_$1")
+			.replace(patternUpper, part => `_${part}`)
 			.toLowerCase()
 			.replace(NamingConventions.#patternLeadingUnderscore, String.empty)
 			.replace(patternSnakeCleanup, "_");

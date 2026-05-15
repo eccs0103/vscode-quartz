@@ -3,6 +3,8 @@
 import "adaptive-extender/node";
 import { Position, Range } from "vscode-languageserver/node.js";
 
+const { min } = Math;
+
 //#region Cursor
 export class Cursor {
 	line: number;
@@ -23,16 +25,20 @@ export class Cursor {
 	}
 
 	toPosition(): Position {
-		return { line: this.line, character: this.column };
+		const { line, column: character } = this;
+		return { line, character };
 	}
 
 	static fromOffset(text: string, offset: number): Cursor {
 		let line = 0;
 		let column = 0;
-		const end = Math.min(offset, text.length);
-		for (let index = 0; index < end; index++) {
-			if (text[index] === "\n") { line++; column = 0; }
-			else column++;
+		for (let index = 0; index < min(offset, text.length); index++) {
+			if (text[index] !== "\n") {
+				column++;
+				continue;
+			}
+			line++;
+			column = 0;
 		}
 		return new Cursor(line, column);
 	}
@@ -41,30 +47,32 @@ export class Cursor {
 
 //#region Span
 export class Span {
-	start: Cursor;
+	begin: Cursor;
 	end: Cursor;
 
 	constructor(start: Cursor, end: Cursor) {
-		this.start = start;
+		this.begin = start;
 		this.end = end;
 	}
 
 	containsLine(line: number): boolean {
-		return line >= this.start.line && line <= this.end.line;
+		return this.begin.line <= line && line <= this.end.line;
 	}
 
 	contains(cursor: Cursor): boolean {
-		if (cursor.isBefore(this.start)) return false;
+		if (cursor.isBefore(this.begin)) return false;
 		if (this.end.isBefore(cursor)) return false;
 		return true;
 	}
 
-	isEmpty(): boolean {
-		return this.start.isAt(this.end);
+	get isEmpty(): boolean {
+		return this.begin.isAt(this.end);
 	}
 
 	toRange(): Range {
-		return { start: this.start.toPosition(), end: this.end.toPosition() };
+		const start = this.begin.toPosition();
+		const end = this.end.toPosition();
+		return { start, end };
 	}
 }
 //#endregion

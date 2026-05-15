@@ -43,36 +43,37 @@ export class FieldDefinition {
 
 //#region Function definition
 export class FunctionDefinition {
+	#owner: string | undefined;
 	#name: string;
 	#parameters: ParameterDefinition[];
-	#returnType: string;
-	#declaringType: string | undefined;
-	#bodySpan: Span | undefined;
+	#result: string;
+	#body: Span | undefined;
 
-	constructor(name: string, parameters: ParameterDefinition[], returnType: string, declaringType?: string, bodySpan?: Span) {
+	constructor(name: string, parameters: ParameterDefinition[], result: string, owner?: string, body?: Span) {
+		this.#owner = owner;
 		this.#name = name;
 		this.#parameters = parameters;
-		this.#returnType = returnType;
-		this.#declaringType = declaringType;
-		this.#bodySpan = bodySpan;
+		this.#result = result;
+		this.#body = body;
 	}
 
+	get owner(): string | undefined { return this.#owner; }
 	get name(): string { return this.#name; }
 	get parameters(): ParameterDefinition[] { return this.#parameters; }
-	get returnType(): string { return this.#returnType; }
-	get declaringType(): string | undefined { return this.#declaringType; }
-	get bodySpan(): Span | undefined { return this.#bodySpan; }
+	get result(): string { return this.#result; }
+	get body(): Span | undefined { return this.#body; }
 
 	hasBody(): boolean {
-		return this.#bodySpan !== undefined;
+		return this.#body !== undefined;
 	}
 
 	isInScope(line: number): boolean {
-		return this.#bodySpan === undefined || this.#bodySpan.containsLine(line);
+		const body = this.#body;
+		return body === undefined || body.containsLine(line);
 	}
 
-	static scopeSpan(startLine: number, endLine: number): Span {
-		return new Span(new Cursor(startLine, 0), new Cursor(endLine, 0));
+	static scopeSpan(beginningLine: number, endLine: number): Span {
+		return new Span(new Cursor(beginningLine, 0), new Cursor(endLine, 0));
 	}
 }
 //#endregion

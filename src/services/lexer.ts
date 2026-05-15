@@ -10,13 +10,13 @@ export class Lexer {
 		[/\s+/y, null],
 		[/\/\/[^\n\r]*/y, null],
 		[/\/\*[\s\S]*?\*\//y, null],
-		[/\d+(\.\d+)?/y, TokenType.Number],
-		[/"([^"\\]|\\.)*"/y, TokenType.String],
-		[/'([^'\\]|\\.)+'/y, TokenType.Character],
-		[/(>=?|<=?|!=|=|\+|-|\*|\/|%|:|\?|&|\||!|\.)/y, TokenType.Operator],
-		[/[A-Za-z_]\w*/y, TokenType.Identifier],
-		[/[(){}[\]]/y, TokenType.Bracket],
-		[/[;,]/y, TokenType.Separator]
+		[/\d+(\.\d+)?/y, TokenType.number],
+		[/"([^"\\]|\\.)*"/y, TokenType.string],
+		[/'([^'\\]|\\.)+'/y, TokenType.character],
+		[/(>=?|<=?|!=|=|\+|-|\*|\/|%|:|\?|&|\||!|\.)/y, TokenType.operator],
+		[/[A-Za-z_]\w*/y, TokenType.identifier],
+		[/[(){}[\]]/y, TokenType.bracket],
+		[/[;,]/y, TokenType.separator]
 	]);
 
 	static #keywords: Set<string> = new Set(["true", "false", "null", "if", "else", "while", "for", "in", "continue", "break", "return"]);
@@ -49,8 +49,8 @@ export class Lexer {
 				}
 
 				if (type !== null) {
-					const finalType = type === TokenType.Identifier && Lexer.#keywords.has(value)
-						? TokenType.Keyword
+					const finalType = type === TokenType.identifier && Lexer.#keywords.has(value)
+						? TokenType.keyword
 						: type;
 					const tokenSpan = new Span(new Cursor(startLine, startColumn), new Cursor(line, column));
 					tokens.push(new Token(finalType, value, tokenSpan));

@@ -25,23 +25,23 @@ export class HoverService {
 		const token = this.#getTokenAt(text, position);
 		if (token === null) return null;
 
-		const line = token.span.start.line;
+		const line = token.span.begin.line;
 
-		if (token.type === TokenType.String) return this.#toHover("```quartz\nString\n```", token.span);
-		if (token.type === TokenType.Character) return this.#toHover("```quartz\nCharacter\n```", token.span);
-		if (token.type === TokenType.Number) return this.#toHover("```quartz\nNumber\n```", token.span);
+		if (token.type === TokenType.string) return this.#toHover("```quartz\nString\n```", token.span);
+		if (token.type === TokenType.character) return this.#toHover("```quartz\nCharacter\n```", token.span);
+		if (token.type === TokenType.number) return this.#toHover("```quartz\nNumber\n```", token.span);
 
 		const documentTable = this.#symbolService.getDocumentTable(document);
 
-		if (token.type === TokenType.Operator && token.value !== ".") {
-			const tokenStart = document.offsetAt(token.span.start.toPosition());
+		if (token.type === TokenType.operator && token.value !== ".") {
+			const tokenStart = document.offsetAt(token.span.begin.toPosition());
 			const tokenEnd = document.offsetAt(token.span.end.toPosition());
 			return this.#makeHoverForOperator(token.value, tokenStart, tokenEnd, line, text, documentTable);
 		}
 
-		if (token.type !== TokenType.Identifier && token.type !== TokenType.Keyword) return null;
+		if (token.type !== TokenType.identifier && token.type !== TokenType.keyword) return null;
 
-		const wordStart = document.offsetAt(token.span.start.toPosition());
+		const wordStart = document.offsetAt(token.span.begin.toPosition());
 		const wordEnd = document.offsetAt(token.span.end.toPosition());
 
 		if (wordStart > 0 && text[wordStart - 1] === ".") {
@@ -79,7 +79,7 @@ export class HoverService {
 		const matched = binaryMethods.filter(method => TypeResolver.mapWith(method.parameters[0].typeName, substitution) === rightType);
 		if (matched.length === 0) return null;
 
-		const signature = `${leftType}.[${operator}](${HoverService.#fmtParams(matched[0].parameters, substitution)}) ${TypeResolver.mapWith(matched[0].returnType, substitution)}`;
+		const signature = `${leftType}.[${operator}](${HoverService.#fmtParams(matched[0].parameters, substitution)}) ${TypeResolver.mapWith(matched[0].result, substitution)}`;
 		return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\``);
 	}
 
@@ -91,7 +91,7 @@ export class HoverService {
 		const { methods } = this.#symbolService.getAllMembers(base);
 		const unary = methods.find(method => method.name === methodName && method.parameters.length === 0);
 		if (unary === undefined) return null;
-		return this.#toHover(`\`\`\`quartz\n${rightType}.[${operator}]() ${TypeResolver.mapWith(unary.returnType, substitution)}\n\`\`\``);
+		return this.#toHover(`\`\`\`quartz\n${rightType}.[${operator}]() ${TypeResolver.mapWith(unary.result, substitution)}\n\`\`\``);
 	}
 
 	#makeHoverForMember(memberName: string, wordEnd: number, typeName: string, text: string): Hover | null {
@@ -107,8 +107,8 @@ export class HoverService {
 		if (matching.length > 0) {
 			const argCount = OverloadPicker.argsAt(text, wordEnd);
 			const resolved = matching[OverloadPicker.pickFor(matching.map(method => method.parameters.length), argCount)];
-			const prefix = (resolved.declaringType === base) ? typeName : (resolved.declaringType ?? base);
-			const signature = `${prefix}.${memberName}(${HoverService.#fmtParams(resolved.parameters, substitution)}) ${TypeResolver.mapWith(resolved.returnType, substitution)}`;
+			const prefix = (resolved.owner === base) ? typeName : (resolved.owner ?? base);
+			const signature = `${prefix}.${memberName}(${HoverService.#fmtParams(resolved.parameters, substitution)}) ${TypeResolver.mapWith(resolved.result, substitution)}`;
 			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(matching.length)}`);
 		}
 
@@ -126,7 +126,7 @@ export class HoverService {
 		if (typeDefinition !== undefined) {
 			const memberLines: string[] = [];
 			for (const field of typeDefinition.fields) memberLines.push(`  ${field.format()}`);
-			for (const { name, parameters, returnType } of typeDefinition.methods) {
+			for (const { name, parameters, result: returnType } of typeDefinition.methods) {
 				if (name.startsWith("[")) continue;
 				memberLines.push(`  ${name}(${parameters.map(parameter => parameter.format()).join(", ")}) ${returnType}`);
 			}
@@ -141,8 +141,8 @@ export class HoverService {
 		if (allOverloads.length > 0) {
 			const argCount = OverloadPicker.argsAt(text, wordEnd);
 			const resolved = allOverloads[OverloadPicker.pickFor(allOverloads.map(overload => overload.parameters.length), argCount)];
-			const prefix = resolved.declaringType !== undefined ? `${resolved.declaringType}.` : '';
-			const signature = `${prefix}${resolved.name}(${resolved.parameters.map(parameter => parameter.format()).join(", ")}) ${resolved.returnType}`;
+			const prefix = resolved.owner !== undefined ? `${resolved.owner}.` : '';
+			const signature = `${prefix}${resolved.name}(${resolved.parameters.map(parameter => parameter.format()).join(", ")}) ${resolved.result}`;
 			return this.#toHover(`\`\`\`quartz\n${signature}\n\`\`\`${HoverService.#noteOverload(allOverloads.length)}`);
 		}
 
@@ -171,7 +171,7 @@ export class HoverService {
 			const { methods } = this.#symbolService.getAllMembers(base);
 			const unaryMethod = methods.find(m => m.name === `[${unaryOp}]` && m.parameters.length === 0);
 			if (unaryMethod === undefined) return operandType;
-			return TypeResolver.mapWith(unaryMethod.returnType, substitution);
+			return TypeResolver.mapWith(unaryMethod.result, substitution);
 		}
 		if (text[cursor] === "(") {
 			const exprEnd = this.#scanExprEnd(text, cursor);
@@ -235,9 +235,9 @@ export class HoverService {
 		const { line, character } = position;
 		for (const token of new Lexer().tokenize(text)) {
 			const { span } = token;
-			if (span.start.line > line) break;
+			if (span.begin.line > line) break;
 			if (span.end.line < line) continue;
-			if (span.start.line === line && character < span.start.column) continue;
+			if (span.begin.line === line && character < span.begin.column) continue;
 			if (span.end.line === line && character >= span.end.column) continue;
 			return token;
 		}

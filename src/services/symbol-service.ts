@@ -78,7 +78,7 @@ export class SymbolService {
 		const workspace = runtimeTable.getType("Workspace");
 		if (workspace === undefined) return;
 		const globalScope = FunctionDefinition.scopeSpan(0, Number.MAX_SAFE_INTEGER);
-		for (const method of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(method.name, method.parameters, method.returnType, "@Workspace", globalScope));
+		for (const method of workspace.methods) runtimeTable.addFunction(new FunctionDefinition(method.name, method.parameters, method.result, "@Workspace", globalScope));
 		for (const { name, typeName } of workspace.fields) if (!runtimeTable.hasVariable(name)) runtimeTable.addVariable(new VariableDefinition(name, typeName, globalScope, "@Workspace"));
 	}
 

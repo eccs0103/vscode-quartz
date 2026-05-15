@@ -23,7 +23,7 @@ class LanguageServer extends Controller {
 		const connection = this.#connection;
 		const documents = this.#documents;
 		connection.onInitialize(params => this.#onInitialize(params));
-		connection.onInitialized(() => this.#onInitialized());
+		connection.onInitialized(_ => this.#onInitialized());
 		documents.onDidOpen(event => this.#sendDiagnostics(event.document));
 		documents.onDidChangeContent(event => this.#sendDiagnostics(event.document));
 		connection.onCompletion(params => this.#onCompletion(params));

@@ -70,18 +70,18 @@ export class SignatureService {
 			const { methods } = symbolService.getAllMembers(base);
 			const matching = context.filterOverloads(methods);
 			if (matching.length === 0) return null;
-			const declType = matching[0].declaringType ?? base;
+			const declType = matching[0].owner ?? base;
 			ownerType = (declType === base) ? receiverType : declType;
 			overloads = matching.map(method => new FunctionDefinition(
 				method.name,
 				method.parameters.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))),
-				TypeResolver.mapWith(method.returnType, substitution)
+				TypeResolver.mapWith(method.result, substitution)
 			));
 		} else {
 			const runtime = symbolService.runtimeTable;
 			const rawOverloads = runtime.getFunctions(name) ?? documentTable.getFunctions(name);
 			if (rawOverloads === undefined || rawOverloads.length === 0) return null;
-			ownerType = rawOverloads[0].declaringType;
+			ownerType = rawOverloads[0].owner;
 			overloads = rawOverloads;
 		}
 
@@ -123,7 +123,7 @@ export class SignatureService {
 	#makeSignature(callable: FunctionDefinition, ownerType: string | undefined): SignatureInformation {
 		const prefix = ownerType !== undefined ? `${ownerType}.` : '';
 		const paramStrings = callable.parameters.map(parameter => parameter.format());
-		const label = `${prefix}${callable.name}(${paramStrings.join(', ')}) ${callable.returnType}`;
+		const label = `${prefix}${callable.name}(${paramStrings.join(', ')}) ${callable.result}`;
 		let charOffset = prefix.length + callable.name.length + 1;
 		const parameters: ParameterInformation[] = paramStrings.map((param, index) => {
 			const info: ParameterInformation = { label: [charOffset, charOffset + param.length] };

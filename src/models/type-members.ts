@@ -18,7 +18,9 @@ export class GenericType {
 	get typeArgs(): string[] { return this.#typeArgs; }
 
 	format(): string {
-		return this.#typeArgs.length > 0 ? `${this.#base}<${this.#typeArgs.join(", ")}>` : this.#base;
+		const base = this.#base;
+		const typeArgs = this.#typeArgs;
+		return typeArgs.length > 0 ? `${base}<${typeArgs.join(", ")}>` : base;
 	}
 }
 //#endregion

@@ -162,7 +162,7 @@ export class TypeResolver {
 			if (typeDefinition === undefined) break;
 
 			for (const method of typeDefinition.methods) {
-				const { name, parameters, returnType } = method;
+				const { name, parameters, result: returnType } = method;
 				const key = `${name}/${parameters.map(p => p.typeName).join(",")}`;
 				if (seenMethod.has(key)) continue;
 				seenMethod.add(key);
@@ -216,7 +216,7 @@ export class TypeResolver {
 			const { methods } = this.getAllMembers(base, context.runtimeTable);
 			const indexOp = methods.find(entry => entry.name === "[]" && entry.parameters.length === 1);
 			if (indexOp === undefined) return null;
-			return TypeResolver.mapWith(indexOp.returnType, substitution);
+			return TypeResolver.mapWith(indexOp.result, substitution);
 		}
 
 		if (scanner.isIdentifierChar()) {
@@ -244,7 +244,7 @@ export class TypeResolver {
 			if (isCall) {
 				const method = members.findMethod(name);
 				if (method === undefined) return null;
-				return TypeResolver.mapWith(method.returnType, substitution);
+				return TypeResolver.mapWith(method.result, substitution);
 			}
 			const field = members.findField(name);
 			if (field === undefined) return null;
@@ -252,7 +252,7 @@ export class TypeResolver {
 		}
 		if (isCall) {
 			const overloads = context.findFunctions(name);
-			if (overloads !== undefined && overloads.length > 0) return overloads[0].returnType;
+			if (overloads !== undefined && overloads.length > 0) return overloads[0].result;
 		}
 		return this.#typeOf(name, context);
 	}
@@ -287,7 +287,7 @@ export class TypeResolver {
 		const matched = (rightType !== null
 			? binaryMethods.find(m => TypeResolver.mapWith(m.parameters[0].typeName, substitution) === rightType)
 			: undefined) ?? binaryMethods[0];
-		return TypeResolver.mapWith(matched.returnType, substitution);
+		return TypeResolver.mapWith(matched.result, substitution);
 	}
 
 	#typeFromGeneric(text: string, startCursor: number): string | null {

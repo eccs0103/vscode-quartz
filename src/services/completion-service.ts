@@ -73,8 +73,8 @@ export class CompletionService {
 
 		for (const [label, overloads] of methodOverloads) {
 			const first = overloads[0];
-			const prefix = (first.declaringType === base) ? rawType : (first.declaringType ?? base);
-			const detail = `${prefix}.${label}(${first.parameters.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.returnType, substitution)}`;
+			const prefix = (first.owner === base) ? rawType : (first.owner ?? base);
+			const detail = `${prefix}.${label}(${first.parameters.map(parameter => `${parameter.name} ${TypeResolver.mapWith(parameter.typeName, substitution)}`).join(", ")}) ${TypeResolver.mapWith(first.result, substitution)}`;
 			builder.add(label, CompletionItemKind.Method, detail);
 		}
 
@@ -107,8 +107,8 @@ export class CompletionService {
 	#addFunctionItems(builder: CompletionBuilder, table: SymbolTable): void {
 		for (const [name, overloads] of table.functionEntries()) {
 			const first = overloads[0];
-			const prefix = first.declaringType !== undefined ? `${first.declaringType}.` : '';
-			const detail = `${prefix}${name}(${first.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${first.returnType}`;
+			const prefix = first.owner !== undefined ? `${first.owner}.` : '';
+			const detail = `${prefix}${name}(${first.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${first.result}`;
 			builder.add(name, CompletionItemKind.Function, detail);
 		}
 	}

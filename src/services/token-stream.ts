@@ -30,7 +30,7 @@ export class TokenStream {
 
 	skipSemicolon(): void {
 		const token = this.current();
-		if (token !== null && token.type === TokenType.Separator && token.value === ";") this.advance();
+		if (token !== null && token.type === TokenType.separator && token.value === ";") this.advance();
 	}
 
 	findMatchingBrace(): number {
@@ -38,8 +38,8 @@ export class TokenStream {
 		let depth = 0;
 		for (let index = this.#cursor; index < tokens.length; index++) {
 			const token = tokens[index];
-			if (token.type === TokenType.Bracket && token.value === "{") depth++;
-			else if (token.type === TokenType.Bracket && token.value === "}") {
+			if (token.type === TokenType.bracket && token.value === "{") depth++;
+			else if (token.type === TokenType.bracket && token.value === "}") {
 				depth--;
 				if (depth === 0) return token.span.end.line;
 			}

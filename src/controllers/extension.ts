@@ -11,16 +11,16 @@ class ExtensionController {
 
 	start(context: ExtensionContext): void {
 		const module = context.asAbsolutePath(path.join("out", "controllers", "server.js"));
-		const serverOptions: ServerOptions = {
+		const optionsServer: ServerOptions = {
 			run: { module, transport: TransportKind.ipc },
 			debug: { module, transport: TransportKind.ipc, options: { execArgv: ["--nolazy", "--inspect=6009"] } }
 		};
-		const clientOptions: LanguageClientOptions = {
+		const optionsClient: LanguageClientOptions = {
 			documentSelector: [{ scheme: "file", language: "qrz" }],
 			synchronize: { fileEvents: workspace.createFileSystemWatcher("**/.qrz") }
 		};
-		this.#client = new LanguageClient("quartzLanguageServer", "Quartz Language Server", serverOptions, clientOptions);
-		this.#client.start();
+		const client = this.#client = new LanguageClient("quartzLanguageServer", "Quartz Language Server", optionsServer, optionsClient);
+		client.start();
 	}
 
 	stop(): Thenable<void> | undefined {
