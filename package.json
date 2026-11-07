@@ -2,7 +2,7 @@
 	"name": "quartz-language",
 	"displayName": "Quartz language",
 	"description": "Complete language support for the Quartz programming language including syntax highlighting, formatting, IntelliSense, and more.",
-	"version": "0.6.2",
+	"version": "0.6.3",
 	"publisher": "eccs0103",
 	"repository": {
 		"type": "git",
@@ -11,7 +11,7 @@
 	"icon": "images/icon.png",
 	"engines": {
 		"vscode": "^1.118.0",
-		"node": ">=22 <25"
+		"node": ">=22"
 	},
 	"categories": [ "Programming Languages", "Formatters", "Linters" ],
 	"keywords": [ "quartz", "qrz", "syntax", "highlighting", "formatter", "language-server" ],

@@ -33,7 +33,9 @@ dist-ssr
 !.editorconfig
 !.npmignore
 !.vscodeignore
+!.github
 !.node-version
+!.npmrc
 
 # TypeScript / JS build artifacts
 *.tsbuildinfo
