@@ -2,11 +2,7 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"lib": [ "ES2024" ],
-		"skipLibCheck": true,
-		"noEmit": false,
-		"sourceMap": true,
-		"rootDir": "./src",
-		"outDir": "./dist"
+		"skipLibCheck": true
 	},
-	"include": [ "src/**/*" ]
+	"include": [ "src/**/*", "vite.config.ts" ]
 }

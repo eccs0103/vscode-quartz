@@ -36,18 +36,18 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"build": "tsc -p ./",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./"
+		"vscode:prepublish": "npm run typecheck && npm run compile",
+		"typecheck": "tsc -p ./",
+		"build": "vite build",
+		"compile": "vite build",
+		"watch": "vite build --watch"
 	},
 	"devDependencies": {
 		"@types/node": "^22.20.5",
 		"@types/vscode": "^1.118.0",
-		"typescript": "^7.0.2"
-	},
-	"dependencies": {
 		"adaptive-extender": "^1.3.0",
+		"typescript": "^7.0.2",
+		"vite": "^7.3.7",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-languageserver": "^9.0.1",
 		"vscode-languageserver-textdocument": "^1.0.12"

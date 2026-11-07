@@ -14,3 +14,4 @@ tsconfig*.json
 .node-version
 **/*.map
 .claude/**
+vite.config.ts
