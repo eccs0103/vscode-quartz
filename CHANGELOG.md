@@ -1,4 +1,4 @@
-## 0.6.3 (07.11.2026)
+## 0.6.4 (07.11.2026)
 - Internal refactoring and build tooling updates — no user-facing changes.
 - The extension is now bundled: the package is smaller (1.23 MB → 725 KB) and the language server starts about twice as fast.
 
