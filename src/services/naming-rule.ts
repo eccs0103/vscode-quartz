@@ -5,7 +5,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node.js";
 import { LanguageKeywords } from "../models/language-keywords.js";
 import { NamingConventions } from "../models/naming-conventions.js";
-import { DiagnosticRule } from "../models/diagnostic-rule.js";
+import { type DiagnosticRule } from "../models/diagnostic-rule.js";
 
 //#region Naming rule
 export class NamingRule implements DiagnosticRule {

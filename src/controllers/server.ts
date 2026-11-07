@@ -2,8 +2,8 @@
 
 import "adaptive-extender/node";
 import { Controller } from "adaptive-extender/node";
-import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type SignatureHelpParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange, SignatureHelp } from "vscode-languageserver/node.js";
-import { TextDocument, TextEdit } from "vscode-languageserver-textdocument";
+import { createConnection, TextDocuments, ProposedFeatures, TextDocumentSyncKind, DidChangeConfigurationNotification, type InitializeParams, type InitializeResult, type DocumentFormattingParams, type CompletionParams, type HoverParams, type FoldingRangeParams, type SignatureHelpParams, type WorkspaceFolder, CompletionItem, Hover, FoldingRange, type SignatureHelp } from "vscode-languageserver/node.js";
+import { TextDocument, type TextEdit } from "vscode-languageserver-textdocument";
 import { ServiceFactory, ServiceBundle } from "../services/service-factory.js";
 
 //#region Language server

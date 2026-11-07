@@ -1,7 +1,7 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { SignatureHelp, SignatureInformation, ParameterInformation, Position } from "vscode-languageserver/node.js";
+import { type SignatureHelp, SignatureInformation, ParameterInformation, Position } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";

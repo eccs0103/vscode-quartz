@@ -17,7 +17,7 @@
 	"keywords": [ "quartz", "qrz", "syntax", "highlighting", "formatter", "language-server" ],
 	"activationEvents": [ "onLanguage:qrz" ],
 	"type": "module",
-	"main": "./out/controllers/extension.js",
+	"main": "./dist/controllers/extension.js",
 	"contributes": {
 		"languages": [
 			{
@@ -37,16 +37,17 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
+		"build": "tsc -p ./",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./"
 	},
 	"devDependencies": {
-		"@types/node": "^25.6.0",
+		"@types/node": "^22.20.5",
 		"@types/vscode": "^1.118.0",
-		"typescript": "^6.0.3"
+		"typescript": "^7.0.2"
 	},
 	"dependencies": {
-		"adaptive-extender": "^0.9.13",
+		"adaptive-extender": "^1.3.0",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-languageserver": "^9.0.1",
 		"vscode-languageserver-textdocument": "^1.0.12"

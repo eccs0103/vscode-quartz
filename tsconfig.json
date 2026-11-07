@@ -1,17 +1,12 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"lib": [ "ES2022" ],
-		"outDir": "out",
-		"rootDir": "src",
-		"sourceMap": true,
-		"strict": true,
-		"esModuleInterop": true,
+		"lib": [ "ES2024" ],
 		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"moduleResolution": "bundler"
+		"noEmit": false,
+		"sourceMap": true,
+		"rootDir": "./src",
+		"outDir": "./dist"
 	},
-	"include": [ "src/**/*" ],
-	"exclude": [ "node_modules", "out" ]
+	"include": [ "src/**/*" ]
 }

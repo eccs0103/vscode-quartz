@@ -2,7 +2,7 @@
 
 import "adaptive-extender/node";
 import * as path from "path";
-import { ExtensionContext, workspace } from "vscode";
+import { type ExtensionContext, workspace } from "vscode";
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node.js";
 
 //#region Extension controller
@@ -10,7 +10,7 @@ class ExtensionController {
 	#client: LanguageClient | undefined;
 
 	start(context: ExtensionContext): void {
-		const module = context.asAbsolutePath(path.join("out", "controllers", "server.js"));
+		const module = context.asAbsolutePath(path.join("dist", "controllers", "server.js"));
 		const optionsServer: ServerOptions = {
 			run: { module, transport: TransportKind.ipc },
 			debug: { module, transport: TransportKind.ipc, options: { execArgv: ["--nolazy", "--inspect=6009"] } }
