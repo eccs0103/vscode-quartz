@@ -1,3 +1,6 @@
+## 0.6.2 (07.11.2026)
+- Updated build tooling and dependencies — no user-facing changes.
+
 ## 0.6.0 (12.05.2026)
 - Internal architecture full refactoring — no user-facing changes.
 

@@ -1,0 +1,16 @@
+.vscode/**
+.vscode-test/**
+dist/test/**
+test/**
+tests/**
+test.qrz
+test-format.qrz
+src/**
+.github/**
+tsconfig*.json
+.gitignore
+.gitattributes
+.editorconfig
+.node-version
+**/*.map
+.claude/**
