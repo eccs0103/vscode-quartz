@@ -1,0 +1,31 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": [ "ES2024" ],
+		"types": [ ],
+		"skipLibCheck": true
+	},
+	"include": [
+		"src/models/diagnostic-rule.ts",
+		"src/models/language-keywords.ts",
+		"src/models/naming-conventions.ts",
+		"src/models/span.ts",
+		"src/models/symbol-definitions.ts",
+		"src/models/token.ts",
+		"src/models/type-members.ts",
+		"src/services/document-parser.ts",
+		"src/services/header-parser.ts",
+		"src/services/lexer.ts",
+		"src/services/overload-picker.ts",
+		"src/services/resolution-context.ts",
+		"src/services/symbol-table.ts",
+		"src/services/token-stream.ts",
+		"src/services/type-reader.ts",
+		"src/services/type-resolver.ts",
+		"src/view/folding-service.ts",
+		"src/view/formatting-service.ts",
+		"src/view/line-formatter.ts",
+		"src/view/naming-rule.ts",
+		"src/view/validation-service.ts"
+	]
+}

@@ -1,8 +1,8 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { TextEdit, Range, Position } from "vscode-languageserver/node.js";
+import { TextEdit, Range, Position } from "vscode-languageserver-types";
 import { LineFormatter } from "./line-formatter.js";
 
 //#region Bracket count
@@ -29,20 +29,20 @@ class BracketCount {
 		let opens = 0;
 		let closes = 0;
 		let leadingCloses = 0;
-		let leadingDone = false;
-		let stringQuote = String.empty;
+		let seen = false;
+		let quote = String.empty;
 		for (let offset = 0; offset < line.length; offset++) {
 			const char = line[offset];
-			if (!String.isEmpty(stringQuote)) {
+			if (!String.isEmpty(quote)) {
 				if (char === '\\') { offset++; continue; }
-				if (char === stringQuote) stringQuote = String.empty;
+				if (char === quote) quote = String.empty;
 				continue;
 			}
-			if (char === '"' || char === "'") { stringQuote = char; leadingDone = true; continue; }
+			if (char === '"' || char === "'") { quote = char; seen = true; continue; }
 			if (char === '/' && offset + 1 < line.length && line[offset + 1] === '/') break;
-			if (char === '{' || char === '[') { opens++; leadingDone = true; }
-			else if (char === '}' || char === ']') { closes++; if (!leadingDone) leadingCloses++; }
-			else if (char !== ' ' && char !== '\t') { leadingDone = true; }
+			if (char === '{' || char === '[') { opens++; seen = true; }
+			else if (char === '}' || char === ']') { closes++; if (!seen) leadingCloses++; }
+			else if (char !== ' ' && char !== '\t') { seen = true; }
 		}
 		return new BracketCount(opens, closes, leadingCloses);
 	}

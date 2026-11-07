@@ -1,22 +1,25 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TokenType } from "../models/token.js";
 import { FunctionDefinition, ParameterDefinition, VariableDefinition } from "../models/symbol-definitions.js";
-import { Cursor, Span } from "../models/span.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
 import { TypeReader } from "./type-reader.js";
 
 //#region Document parser
 export class DocumentParser {
-	#stream!: TokenStream;
-	#reader!: TypeReader;
+	#stream: TokenStream;
+	#reader: TypeReader;
 	#table: SymbolTable = new SymbolTable();
 
-	parse(code: string): SymbolTable {
-		this.#stream = new TokenStream(code);
-		this.#reader = new TypeReader(this.#stream);
+	constructor(code: string) {
+		const stream = new TokenStream(code);
+		this.#stream = stream;
+		this.#reader = new TypeReader(stream);
+	}
+
+	parse(): SymbolTable {
 		this.#readProgram();
 		return this.#table;
 	}
@@ -57,12 +60,12 @@ export class DocumentParser {
 		const nameToken = stream.advance();
 		if (nameToken === null) return;
 		const params = reader.readParams();
-		const retType = reader.readType();
+		const result = reader.readType();
 
 		const bodyStart = stream.current()?.span.begin.line ?? 0;
 		const bodyEnd = stream.findMatchingBrace();
 
-		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, retType, "@Workspace", FunctionDefinition.scopeSpan(nameToken.span.begin.line, bodyEnd)));
+		this.#table.addFunction(new FunctionDefinition(nameToken.value, params, result, "@Workspace", FunctionDefinition.scopeSpan(nameToken.span.begin.line, bodyEnd)));
 
 		const bodyOpen = stream.current();
 		if (bodyOpen === null || !(bodyOpen.type === TokenType.bracket && bodyOpen.value === "{")) return;
@@ -73,10 +76,10 @@ export class DocumentParser {
 	}
 	//#endregion
 	//#region Block and statements
-	#readBlock(initParams: ParameterDefinition[], blockStart: number, blockEnd: number): void {
+	#readBlock(parameters: ParameterDefinition[], blockStart: number, blockEnd: number): void {
 		const stream = this.#stream;
 		const table = this.#table;
-		for (const parameter of initParams) table.addVariable(new VariableDefinition(parameter.name, parameter.typeName, FunctionDefinition.scopeSpan(blockStart, blockEnd)));
+		for (const parameter of parameters) table.addVariable(new VariableDefinition(parameter.name, parameter.typeName, FunctionDefinition.scopeSpan(blockStart, blockEnd), null));
 		while (true) {
 			const token = stream.current();
 			if (token === null || (token.type === TokenType.bracket && token.value === "}")) break;
@@ -168,11 +171,10 @@ export class DocumentParser {
 		this.#skipToClose("(", ")");
 
 		const bodyToken = stream.current();
-		const bodyEnd = (bodyToken !== null && bodyToken.type === TokenType.bracket && bodyToken.value === "{")
-			? stream.findMatchingBrace()
-			: scopeEnd;
+		const hasBody = bodyToken !== null && bodyToken.type === TokenType.bracket && bodyToken.value === "{";
+		const bodyEnd = hasBody ? stream.findMatchingBrace() : scopeEnd;
 
-		if (!String.isEmpty(name)) this.#table.addVariable(new VariableDefinition(name, typeName, FunctionDefinition.scopeSpan(bodyToken?.span.begin.line ?? 0, bodyEnd)));
+		if (!String.isEmpty(name)) this.#table.addVariable(new VariableDefinition(name, typeName, FunctionDefinition.scopeSpan(bodyToken?.span.begin.line ?? 0, bodyEnd), null));
 
 		this.#readStatement(scopeStart, scopeEnd);
 	}
@@ -191,7 +193,7 @@ export class DocumentParser {
 			this.#skipToSemicolon();
 		}
 
-		this.#table.addVariable(new VariableDefinition(nameToken.value, typeName, FunctionDefinition.scopeSpan(nameToken.span.begin.line, scopeEnd)));
+		this.#table.addVariable(new VariableDefinition(nameToken.value, typeName, FunctionDefinition.scopeSpan(nameToken.span.begin.line, scopeEnd), null));
 	}
 	//#endregion
 	//#region Utilities
@@ -219,9 +221,10 @@ export class DocumentParser {
 	}
 
 	#skipBalanced(open: string, close: string): void {
-		const first = this.#stream.current();
+		const stream = this.#stream;
+		const first = stream.current();
 		if (first === null || !(first.type === TokenType.bracket && first.value === open)) return;
-		this.#stream.advance();
+		stream.advance();
 		this.#skipToClose(open, close);
 	}
 	//#endregion

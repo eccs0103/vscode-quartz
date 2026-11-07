@@ -1,7 +1,7 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { type WorkspaceFolder } from "vscode-languageserver/node.js";
+import { type WorkspaceFolder } from "vscode-languageserver-types";
 import { SymbolService } from "./symbol-service.js";
 import { CompletionService } from "./completion-service.js";
 import { HoverService } from "./hover-service.js";
@@ -12,34 +12,34 @@ import { FoldingService } from "../view/folding-service.js";
 
 //#region Service bundle
 export class ServiceBundle {
-	#symbolService: SymbolService;
-	#completionService: CompletionService;
-	#hoverService: HoverService;
-	#signatureService: SignatureService;
-	#validationService: ValidationService;
-	#formattingService: FormattingService;
-	#foldingService: FoldingService;
+	#symbols: SymbolService;
+	#completion: CompletionService;
+	#hover: HoverService;
+	#signature: SignatureService;
+	#validation: ValidationService;
+	#formatting: FormattingService;
+	#folding: FoldingService;
 
-	constructor(symbolService: SymbolService, completionService: CompletionService, hoverService: HoverService, signatureService: SignatureService, validationService: ValidationService, formattingService: FormattingService, foldingService: FoldingService) {
-		this.#symbolService = symbolService;
-		this.#completionService = completionService;
-		this.#hoverService = hoverService;
-		this.#signatureService = signatureService;
-		this.#validationService = validationService;
-		this.#formattingService = formattingService;
-		this.#foldingService = foldingService;
+	constructor(symbols: SymbolService, completion: CompletionService, hover: HoverService, signature: SignatureService, validation: ValidationService, formatting: FormattingService, folding: FoldingService) {
+		this.#symbols = symbols;
+		this.#completion = completion;
+		this.#hover = hover;
+		this.#signature = signature;
+		this.#validation = validation;
+		this.#formatting = formatting;
+		this.#folding = folding;
 	}
 
-	get symbolService(): SymbolService { return this.#symbolService; }
-	get completionService(): CompletionService { return this.#completionService; }
-	get hoverService(): HoverService { return this.#hoverService; }
-	get signatureService(): SignatureService { return this.#signatureService; }
-	get validationService(): ValidationService { return this.#validationService; }
-	get formattingService(): FormattingService { return this.#formattingService; }
-	get foldingService(): FoldingService { return this.#foldingService; }
+	get symbols(): SymbolService { return this.#symbols; }
+	get completion(): CompletionService { return this.#completion; }
+	get hover(): HoverService { return this.#hover; }
+	get signature(): SignatureService { return this.#signature; }
+	get validation(): ValidationService { return this.#validation; }
+	get formatting(): FormattingService { return this.#formatting; }
+	get folding(): FoldingService { return this.#folding; }
 
-	initialize(workspaceFolders: WorkspaceFolder[]): void {
-		this.#symbolService.initialize(workspaceFolders);
+	initialize(folders: WorkspaceFolder[]): void {
+		this.#symbols.initialize(folders);
 	}
 }
 //#endregion
@@ -47,12 +47,12 @@ export class ServiceBundle {
 //#region Service factory
 export class ServiceFactory {
 	static create(): ServiceBundle {
-		const symbolService = new SymbolService();
+		const symbols = new SymbolService();
 		return new ServiceBundle(
-			symbolService,
-			new CompletionService(symbolService),
-			new HoverService(symbolService),
-			new SignatureService(symbolService),
+			symbols,
+			new CompletionService(symbols),
+			new HoverService(symbols),
+			new SignatureService(symbols),
 			new ValidationService(),
 			new FormattingService(),
 			new FoldingService()

@@ -1,21 +1,21 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node.js";
+import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver-types";
 import { LanguageKeywords } from "../models/language-keywords.js";
 import { NamingConventions } from "../models/naming-conventions.js";
 import { type DiagnosticRule } from "../models/diagnostic-rule.js";
 
 //#region Naming rule
 export class NamingRule implements DiagnosticRule {
-	static #patternIdentifier: RegExp = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
-	static #patternLeadingUpper: RegExp = /^[A-Z]/;
+	static #identifier: RegExp = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
+	static #upper: RegExp = /^[A-Z]/;
 
 	diagnose(document: TextDocument): Diagnostic[] {
 		const text = document.getText();
 		const diagnostics: Diagnostic[] = [];
-		const pattern = NamingRule.#patternIdentifier;
+		const pattern = NamingRule.#identifier;
 		pattern.lastIndex = 0;
 		let match: RegExpExecArray | null;
 
@@ -24,7 +24,7 @@ export class NamingRule implements DiagnosticRule {
 			const offset = match.index;
 			if (LanguageKeywords.has(identifier)) continue;
 
-			const isUpper = NamingRule.#patternLeadingUpper.test(identifier);
+			const isUpper = NamingRule.#upper.test(identifier);
 			const isInvalid = isUpper ? !NamingConventions.isPascalCase(identifier) : !NamingConventions.isSnakeCase(identifier);
 			if (!isInvalid) continue;
 

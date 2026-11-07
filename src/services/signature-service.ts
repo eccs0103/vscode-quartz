@@ -1,7 +1,7 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { type SignatureHelp, SignatureInformation, ParameterInformation, Position } from "vscode-languageserver/node.js";
+import { type SignatureHelp, SignatureInformation, ParameterInformation, Position } from "vscode-languageserver-types";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
@@ -11,47 +11,48 @@ import { OverloadPicker } from "./overload-picker.js";
 //#region Call context
 class CallContext {
 	#name: string;
-	#nameEndInText: number;
+	#end: number;
 	#activeParameter: number;
 
-	constructor(name: string, nameEndInText: number, activeParameter: number) {
+	constructor(name: string, end: number, activeParameter: number) {
 		this.#name = name;
-		this.#nameEndInText = nameEndInText;
+		this.#end = end;
 		this.#activeParameter = activeParameter;
 	}
 
 	get name(): string { return this.#name; }
-	get nameEndInText(): number { return this.#nameEndInText; }
+	get end(): number { return this.#end; }
 	get activeParameter(): number { return this.#activeParameter; }
 
 	filterOverloads(overloads: FunctionDefinition[]): FunctionDefinition[] {
-		return overloads.filter(entry => entry.name === this.#name && !entry.name.startsWith("["));
+		const name = this.#name;
+		return overloads.filter(entry => entry.name === name && !entry.name.startsWith("["));
 	}
 }
 //#endregion
 
 //#region Signature service
 export class SignatureService {
-	static #patternIdentChar: RegExp = /[A-Za-z_0-9]/;
+	static #identifier: RegExp = /[A-Za-z_0-9]/;
 
-	#symbolService: SymbolService;
+	#symbols: SymbolService;
 
-	constructor(symbolService: SymbolService) {
-		this.#symbolService = symbolService;
+	constructor(symbols: SymbolService) {
+		this.#symbols = symbols;
 	}
 
 	getSignatureHelp(document: TextDocument, position: Position): SignatureHelp | null {
-		const symbolService = this.#symbolService;
+		const symbols = this.#symbols;
 		const text = document.getText();
 		const offset = document.offsetAt(position);
 		const context = this.#findCallContext(text, offset);
 		if (context === null) return null;
 
-		const { name, nameEndInText, activeParameter } = context;
-		const documentTable = symbolService.getDocumentTable(document);
+		const { name, end, activeParameter } = context;
+		const table = symbols.getDocumentTable(document);
 
-		let nameCursor = nameEndInText;
-		while (nameCursor >= 0 && SignatureService.#patternIdentChar.test(text[nameCursor])) nameCursor--;
+		let nameCursor = end;
+		while (nameCursor >= 0 && SignatureService.#identifier.test(text[nameCursor])) nameCursor--;
 
 		let dotCursor = nameCursor;
 		while (dotCursor >= 0 && (text[dotCursor] === ' ' || text[dotCursor] === '\t')) dotCursor--;
@@ -59,38 +60,41 @@ export class SignatureService {
 		const isDot = dotCursor >= 0 && text[dotCursor] === '.';
 
 		let overloads: FunctionDefinition[];
-		let ownerType: string | undefined;
+		let owner: string | null;
 
 		if (isDot) {
-			const receiverType = symbolService.typeAt(text, dotCursor, position.line, documentTable);
-			if (receiverType === null) return null;
-			const { base, typeArgs } = TypeResolver.toGeneric(receiverType);
-			const typeDefinition = symbolService.getType(base);
+			const receiver = symbols.typeAt(text, dotCursor, position.line, table);
+			if (receiver === null) return null;
+			const { base, typeArgs } = TypeResolver.toGeneric(receiver);
+			const typeDefinition = symbols.getType(base);
 			const substitution = TypeResolver.toSubstitution(typeDefinition?.typeParams ?? [], typeArgs);
-			const { methods } = symbolService.getAllMembers(base);
+			const { methods } = symbols.getAllMembers(base);
 			const matching = context.filterOverloads(methods);
 			if (matching.length === 0) return null;
-			const declType = matching[0].owner ?? base;
-			ownerType = (declType === base) ? receiverType : declType;
+			const declarer = matching[0].owner ?? base;
+			owner = (declarer === base) ? receiver : declarer;
 			overloads = matching.map(method => new FunctionDefinition(
 				method.name,
 				method.parameters.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))),
-				TypeResolver.mapWith(method.result, substitution)
+				TypeResolver.mapWith(method.result, substitution),
+				null,
+				null
 			));
 		} else {
-			const runtime = symbolService.runtimeTable;
-			const rawOverloads = runtime.getFunctions(name) ?? documentTable.getFunctions(name);
-			if (rawOverloads === undefined || rawOverloads.length === 0) return null;
-			ownerType = rawOverloads[0].owner;
+			const { runtime } = symbols;
+			const rawOverloads = runtime.getFunctions(name) ?? table.getFunctions(name);
+			if (rawOverloads === null || rawOverloads.length === 0) return null;
+			owner = rawOverloads[0].owner;
 			overloads = rawOverloads;
 		}
 
 		const activeSignature = OverloadPicker.pickActive(overloads.map(overload => overload.parameters.length), activeParameter);
-		const signatures = overloads.map(overload => this.#makeSignature(overload, ownerType));
+		const signatures = overloads.map(overload => this.#makeSignature(overload, owner));
 		return { signatures, activeSignature, activeParameter };
 	}
 
 	#findCallContext(text: string, offset: number): CallContext | null {
+		const identifier = SignatureService.#identifier;
 		let nestDepth = 0;
 		let bodyDepth = 0;
 		let cursor = offset - 1;
@@ -106,12 +110,12 @@ export class SignatureService {
 				const openParenOffset = cursor;
 				let nameCursor = cursor - 1;
 				while (nameCursor >= 0 && (text[nameCursor] === ' ' || text[nameCursor] === '\t')) nameCursor--;
-				if (nameCursor < 0 || !SignatureService.#patternIdentChar.test(text[nameCursor])) return null;
+				if (nameCursor < 0 || !identifier.test(text[nameCursor])) return null;
 				const nameEnd = nameCursor;
-				while (nameCursor >= 0 && SignatureService.#patternIdentChar.test(text[nameCursor])) nameCursor--;
+				while (nameCursor >= 0 && identifier.test(text[nameCursor])) nameCursor--;
 				const name = text.slice(nameCursor + 1, nameEnd + 1);
 				if (name[0] >= '0' && name[0] <= '9') return null;
-				const activeParameter = OverloadPicker.argIndexAt(text, openParenOffset + 1, offset);
+				const activeParameter = OverloadPicker.indexAt(text, openParenOffset + 1, offset);
 				return new CallContext(name, nameEnd, activeParameter);
 			}
 			cursor--;
@@ -120,14 +124,14 @@ export class SignatureService {
 		return null;
 	}
 
-	#makeSignature(callable: FunctionDefinition, ownerType: string | undefined): SignatureInformation {
-		const prefix = ownerType !== undefined ? `${ownerType}.` : '';
-		const paramStrings = callable.parameters.map(parameter => parameter.format());
-		const label = `${prefix}${callable.name}(${paramStrings.join(', ')}) ${callable.result}`;
-		let charOffset = prefix.length + callable.name.length + 1;
-		const parameters: ParameterInformation[] = paramStrings.map((param, index) => {
-			const info: ParameterInformation = { label: [charOffset, charOffset + param.length] };
-			charOffset += param.length + (index < paramStrings.length - 1 ? 2 : 0);
+	#makeSignature(callable: FunctionDefinition, owner: string | null): SignatureInformation {
+		const prefix = owner !== null ? `${owner}.` : '';
+		const formatted = callable.parameters.map(parameter => parameter.format());
+		const label = `${prefix}${callable.name}(${formatted.join(', ')}) ${callable.result}`;
+		let offset = prefix.length + callable.name.length + 1;
+		const parameters: ParameterInformation[] = formatted.map((text, index) => {
+			const info: ParameterInformation = { label: [offset, offset + text.length] };
+			offset += text.length + (index < formatted.length - 1 ? 2 : 0);
 			return info;
 		});
 		return { label, parameters };

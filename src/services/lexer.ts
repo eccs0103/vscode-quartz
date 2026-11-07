@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { Cursor, Span } from "../models/span.js";
 import { Token, TokenType } from "../models/token.js";
 
@@ -23,12 +23,12 @@ export class Lexer {
 
 	tokenize(code: string): Token[] {
 		const tokens: Token[] = [];
-		const len = code.length;
+		const { length } = code;
 		let cursor = 0;
 		let line = 0;
 		let column = 0;
 
-		while (cursor < len) {
+		while (cursor < length) {
 			let matched = false;
 
 			for (const [regex, type] of Lexer.#patterns) {
@@ -39,21 +39,21 @@ export class Lexer {
 				const value = match[0];
 				const startLine = line;
 				const startColumn = column;
-				const lastNL = value.lastIndexOf("\n");
+				const newline = value.lastIndexOf("\n");
 
-				if (lastNL === -1) {
+				if (newline === -1) {
 					column += value.length;
 				} else {
 					line += value.split("\n").length - 1;
-					column = value.length - lastNL - 1;
+					column = value.length - newline - 1;
 				}
 
 				if (type !== null) {
 					const finalType = type === TokenType.identifier && Lexer.#keywords.has(value)
 						? TokenType.keyword
 						: type;
-					const tokenSpan = new Span(new Cursor(startLine, startColumn), new Cursor(line, column));
-					tokens.push(new Token(finalType, value, tokenSpan));
+					const span = new Span(new Cursor(startLine, startColumn), new Cursor(line, column));
+					tokens.push(new Token(finalType, value, span));
 				}
 
 				cursor += value.length;

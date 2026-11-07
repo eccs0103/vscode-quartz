@@ -11,7 +11,7 @@ class LanguageServer extends Controller {
 	#connection = createConnection(ProposedFeatures.all);
 	#documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 	#hasConfigCapability = false;
-	#workspaceFolders: WorkspaceFolder[] | null = null;
+	#folders: WorkspaceFolder[] | null = null;
 	#services: ServiceBundle;
 
 	constructor() {
@@ -22,21 +22,21 @@ class LanguageServer extends Controller {
 	async run(): Promise<void> {
 		const connection = this.#connection;
 		const documents = this.#documents;
-		connection.onInitialize(params => this.#onInitialize(params));
-		connection.onInitialized(_ => this.#onInitialized());
+		connection.onInitialize(event => this.#onInitialize(event));
+		connection.onInitialized(event => this.#onInitialized());
 		documents.onDidOpen(event => this.#sendDiagnostics(event.document));
 		documents.onDidChangeContent(event => this.#sendDiagnostics(event.document));
-		connection.onCompletion(params => this.#onCompletion(params));
-		connection.onSignatureHelp(params => this.#onSignatureHelp(params));
-		connection.onHover(params => this.#onHover(params));
-		connection.onDocumentFormatting(params => this.#onDocumentFormatting(params));
-		connection.onFoldingRanges(params => this.#onFoldingRanges(params));
+		connection.onCompletion(event => this.#onCompletion(event));
+		connection.onSignatureHelp(event => this.#onSignatureHelp(event));
+		connection.onHover(event => this.#onHover(event));
+		connection.onDocumentFormatting(event => this.#onDocumentFormatting(event));
+		connection.onFoldingRanges(event => this.#onFoldingRanges(event));
 		documents.listen(connection);
 		connection.listen();
 	}
 
 	#onInitialize(params: InitializeParams): InitializeResult {
-		this.#workspaceFolders = params.workspaceFolders ?? null;
+		this.#folders = params.workspaceFolders ?? null;
 		this.#hasConfigCapability = params.capabilities.workspace?.configuration !== undefined;
 		const hasWorkspaceFolders = params.capabilities.workspace?.workspaceFolders !== undefined;
 		const result: InitializeResult = {
@@ -55,48 +55,48 @@ class LanguageServer extends Controller {
 
 	#onInitialized(): void {
 		const connection = this.#connection;
-		const workspaceFolders = this.#workspaceFolders;
+		const folders = this.#folders;
 		if (this.#hasConfigCapability) connection.client.register(DidChangeConfigurationNotification.type, undefined);
-		if (workspaceFolders !== null) this.#services.initialize(workspaceFolders);
+		if (folders !== null) this.#services.initialize(folders);
 	}
 
 	#sendDiagnostics(document: TextDocument): void {
 		const connection = this.#connection;
 		const uri = document.uri;
-		const diagnostics = this.#services.validationService.validate(document);
+		const diagnostics = this.#services.validation.validate(document);
 		connection.sendDiagnostics({ uri, diagnostics });
 	}
 
 	#onCompletion(params: CompletionParams): CompletionItem[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#services.completionService.getCompletions(document, params.position);
+		return this.#services.completion.getCompletions(document, params.position);
 	}
 
 	#onSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return null;
-		return this.#services.signatureService.getSignatureHelp(document, params.position);
+		return this.#services.signature.getSignatureHelp(document, params.position);
 	}
 
 	#onHover(params: HoverParams): Hover | null {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return null;
-		return this.#services.hoverService.getHover(document, params.position);
+		return this.#services.hover.getHover(document, params.position);
 	}
 
 	#onDocumentFormatting(params: DocumentFormattingParams): TextEdit[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#services.formattingService.getEdits(document);
+		return this.#services.formatting.getEdits(document);
 	}
 
 	#onFoldingRanges(params: FoldingRangeParams): FoldingRange[] {
 		const document = this.#documents.get(params.textDocument.uri);
 		if (document === undefined) return [];
-		return this.#services.foldingService.getRanges(document);
+		return this.#services.folding.getRanges(document);
 	}
 }
 //#endregion
 
-LanguageServer.launch();
+void LanguageServer.launch();

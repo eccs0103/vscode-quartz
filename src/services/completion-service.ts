@@ -1,7 +1,7 @@
 "use strict";
 
 import "adaptive-extender/node";
-import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver/node.js";
+import { CompletionItem, CompletionItemKind, Position } from "vscode-languageserver-types";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SymbolService } from "./symbol-service.js";
 import { SymbolTable } from "./symbol-table.js";
@@ -13,10 +13,11 @@ class CompletionBuilder {
 	#items: CompletionItem[] = [];
 	#added: Set<string> = new Set();
 
-	add(label: string, kind: CompletionItemKind, detail: string, documentation?: string): void {
-		if (this.#added.has(label)) return;
-		this.#added.add(label);
-		this.#items.push({ label, kind, detail, documentation });
+	add(label: string, kind: CompletionItemKind, detail: string): void {
+		const added = this.#added;
+		if (added.has(label)) return;
+		added.add(label);
+		this.#items.push({ label, kind, detail });
 	}
 
 	build(): CompletionItem[] {
@@ -27,41 +28,41 @@ class CompletionBuilder {
 
 //#region Completion service
 export class CompletionService {
-	static #patternMemberAccess: RegExp = /\.([A-Za-z_]\w*)?$/;
+	static #access: RegExp = /\.([A-Za-z_]\w*)?$/;
 
-	#symbolService: SymbolService;
+	#symbols: SymbolService;
 
-	constructor(symbolService: SymbolService) {
-		this.#symbolService = symbolService;
+	constructor(symbols: SymbolService) {
+		this.#symbols = symbols;
 	}
 
 	getCompletions(document: TextDocument, position: Position): CompletionItem[] {
-		const symbolService = this.#symbolService;
+		const symbols = this.#symbols;
 		const text = document.getText();
 		const offset = document.offsetAt(position);
 		const before = text.slice(0, offset);
 
-		const documentTable = symbolService.getDocumentTable(document);
+		const table = symbols.getDocumentTable(document);
 
-		const dotMatch = CompletionService.#patternMemberAccess.exec(before);
+		const dotMatch = CompletionService.#access.exec(before);
 		if (dotMatch !== null) {
 			const dotIndex = before.length - dotMatch[0].length;
-			const receiverType = symbolService.typeAt(before, dotIndex, position.line, documentTable);
-			if (receiverType !== null) return this.#getMembersOf(receiverType);
+			const receiver = symbols.typeAt(before, dotIndex, position.line, table);
+			if (receiver !== null) return this.#getMembersOf(receiver);
 			return [];
 		}
 
-		return this.#getContextItems(position, documentTable);
+		return this.#getContextItems(position, table);
 	}
 
 	#getMembersOf(rawType: string): CompletionItem[] {
-		const symbolService = this.#symbolService;
+		const symbols = this.#symbols;
 		const { base, typeArgs } = TypeResolver.toGeneric(rawType);
-		const rootType = symbolService.getType(base);
-		if (rootType === undefined) return [];
+		const rootType = symbols.getType(base);
+		if (rootType === null) return [];
 
 		const substitution = TypeResolver.toSubstitution(rootType.typeParams, typeArgs);
-		const { methods, fields } = symbolService.getAllMembers(base);
+		const { methods, fields } = symbols.getAllMembers(base);
 		const builder = new CompletionBuilder();
 
 		const methodOverloads = new Map<string, typeof methods>();
@@ -83,9 +84,8 @@ export class CompletionService {
 		return builder.build();
 	}
 
-	#getContextItems(position: Position, documentTable: SymbolTable): CompletionItem[] {
-		const symbolService = this.#symbolService;
-		const runtime = symbolService.runtimeTable;
+	#getContextItems(position: Position, table: SymbolTable): CompletionItem[] {
+		const { runtime } = this.#symbols;
 		const builder = new CompletionBuilder();
 
 		for (const keyword of LanguageKeywords.values()) builder.add(keyword, CompletionItemKind.Keyword, "keyword");
@@ -96,10 +96,10 @@ export class CompletionService {
 		}
 
 		this.#addFunctionItems(builder, runtime);
-		this.#addFunctionItems(builder, documentTable);
+		this.#addFunctionItems(builder, table);
 
-		for (const { name, typeName, declaringType } of runtime.getVariablesAt(position.line)) builder.add(name, CompletionItemKind.Variable, declaringType !== undefined ? `${declaringType}.${name} ${typeName}` : typeName);
-		for (const { name, typeName } of documentTable.getVariablesAt(position.line)) builder.add(name, CompletionItemKind.Variable, typeName);
+		for (const { name, typeName, owner } of runtime.getVariablesAt(position.line)) builder.add(name, CompletionItemKind.Variable, owner !== null ? `${owner}.${name} ${typeName}` : typeName);
+		for (const { name, typeName } of table.getVariablesAt(position.line)) builder.add(name, CompletionItemKind.Variable, typeName);
 
 		return builder.build();
 	}
@@ -107,7 +107,7 @@ export class CompletionService {
 	#addFunctionItems(builder: CompletionBuilder, table: SymbolTable): void {
 		for (const [name, overloads] of table.functionEntries()) {
 			const first = overloads[0];
-			const prefix = first.owner !== undefined ? `${first.owner}.` : '';
+			const prefix = first.owner !== null ? `${first.owner}.` : '';
 			const detail = `${prefix}${name}(${first.parameters.map(parameter => `${parameter.name} ${parameter.typeName}`).join(", ")}) ${first.result}`;
 			builder.add(name, CompletionItemKind.Function, detail);
 		}

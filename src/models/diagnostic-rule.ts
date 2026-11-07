@@ -1,8 +1,8 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { Diagnostic } from "vscode-languageserver/node.js";
+import { Diagnostic } from "vscode-languageserver-types";
 
 //#region Diagnostic rule
 export interface DiagnosticRule {

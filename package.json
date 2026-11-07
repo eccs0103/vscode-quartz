@@ -37,7 +37,7 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run typecheck && npm run compile",
-		"typecheck": "tsc -p ./",
+		"typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.node.json",
 		"build": "vite build",
 		"compile": "vite build",
 		"watch": "vite build --watch"
@@ -50,6 +50,7 @@
 		"vite": "^7.3.7",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-languageserver": "^9.0.1",
-		"vscode-languageserver-textdocument": "^1.0.12"
+		"vscode-languageserver-textdocument": "^1.0.12",
+		"vscode-languageserver-types": "^3.17.5"
 	}
 }

@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { Span, Cursor } from "./span.js";
 
 //#region Parameter definition
@@ -36,20 +36,21 @@ export class FieldDefinition {
 	format(): string { return `${this.#name} ${this.#typeName}`; }
 
 	substituted(map: Map<string, string>): FieldDefinition {
-		return new FieldDefinition(this.#name, map.get(this.#typeName) ?? this.#typeName);
+		const typeName = this.#typeName;
+		return new FieldDefinition(this.#name, map.get(typeName) ?? typeName);
 	}
 }
 //#endregion
 
 //#region Function definition
 export class FunctionDefinition {
-	#owner: string | undefined;
+	#owner: string | null;
 	#name: string;
 	#parameters: ParameterDefinition[];
 	#result: string;
-	#body: Span | undefined;
+	#body: Span | null;
 
-	constructor(name: string, parameters: ParameterDefinition[], result: string, owner?: string, body?: Span) {
+	constructor(name: string, parameters: ParameterDefinition[], result: string, owner: string | null, body: Span | null) {
 		this.#owner = owner;
 		this.#name = name;
 		this.#parameters = parameters;
@@ -57,23 +58,18 @@ export class FunctionDefinition {
 		this.#body = body;
 	}
 
-	get owner(): string | undefined { return this.#owner; }
+	get owner(): string | null { return this.#owner; }
 	get name(): string { return this.#name; }
 	get parameters(): ParameterDefinition[] { return this.#parameters; }
 	get result(): string { return this.#result; }
-	get body(): Span | undefined { return this.#body; }
-
-	hasBody(): boolean {
-		return this.#body !== undefined;
-	}
 
 	isInScope(line: number): boolean {
 		const body = this.#body;
-		return body === undefined || body.containsLine(line);
+		return body === null || body.contains(line);
 	}
 
-	static scopeSpan(beginningLine: number, endLine: number): Span {
-		return new Span(new Cursor(beginningLine, 0), new Cursor(endLine, 0));
+	static scopeSpan(begin: number, end: number): Span {
+		return new Span(new Cursor(begin, 0), new Cursor(end, 0));
 	}
 }
 //#endregion
@@ -82,11 +78,11 @@ export class FunctionDefinition {
 export class TypeDefinition {
 	#name: string;
 	#typeParams: string[];
-	#parent: string | undefined;
+	#parent: string | null;
 	#methods: FunctionDefinition[];
 	#fields: FieldDefinition[];
 
-	constructor(name: string, typeParams: string[], parent: string | undefined, methods: FunctionDefinition[], fields: FieldDefinition[]) {
+	constructor(name: string, typeParams: string[], parent: string | null, methods: FunctionDefinition[], fields: FieldDefinition[]) {
 		this.#name = name;
 		this.#typeParams = typeParams;
 		this.#parent = parent;
@@ -96,7 +92,7 @@ export class TypeDefinition {
 
 	get name(): string { return this.#name; }
 	get typeParams(): string[] { return this.#typeParams; }
-	get parent(): string | undefined { return this.#parent; }
+	get parent(): string | null { return this.#parent; }
 	get methods(): FunctionDefinition[] { return this.#methods; }
 	get fields(): FieldDefinition[] { return this.#fields; }
 
@@ -109,22 +105,22 @@ export class VariableDefinition {
 	#name: string;
 	#typeName: string;
 	#scope: Span;
-	#declaringType: string | undefined;
+	#owner: string | null;
 
-	constructor(name: string, typeName: string, scope: Span, declaringType?: string) {
+	constructor(name: string, typeName: string, scope: Span, owner: string | null) {
 		this.#name = name;
 		this.#typeName = typeName;
 		this.#scope = scope;
-		this.#declaringType = declaringType;
+		this.#owner = owner;
 	}
 
 	get name(): string { return this.#name; }
 	get typeName(): string { return this.#typeName; }
 	get scope(): Span { return this.#scope; }
-	get declaringType(): string | undefined { return this.#declaringType; }
+	get owner(): string | null { return this.#owner; }
 
 	isInScope(line: number): boolean {
-		return this.#scope.containsLine(line);
+		return this.#scope.contains(line);
 	}
 }
 //#endregion

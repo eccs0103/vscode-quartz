@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 
 //#region Language keywords
 export class LanguageKeywords {

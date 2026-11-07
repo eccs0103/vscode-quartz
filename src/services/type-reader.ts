@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TokenType } from "../models/token.js";
 import { ParameterDefinition } from "../models/symbol-definitions.js";
 import { TokenStream } from "./token-stream.js";
@@ -20,23 +20,7 @@ export class TypeReader {
 		stream.advance();
 
 		const next = stream.current();
-		if (next !== null && next.type === TokenType.operator && next.value === "<") {
-			stream.advance();
-			const typeArgs: string[] = [];
-			let depth = 1;
-			while (true) {
-				const token = stream.current();
-				if (token === null || depth === 0) break;
-				if (token.type === TokenType.operator && token.value === "<") { depth++; stream.advance(); continue; }
-				if (token.type === TokenType.operator && token.value === ">") { depth--; if (depth === 0) break; stream.advance(); continue; }
-				if (token.type === TokenType.identifier) { typeArgs.push(this.readType()); continue; }
-				if (token.type === TokenType.separator && token.value === ",") { stream.advance(); continue; }
-				stream.advance();
-			}
-			const close = stream.current();
-			if (close !== null && close.type === TokenType.operator && close.value === ">") stream.advance();
-			return `${base.value}<${typeArgs.join(", ")}>`;
-		}
+		if (next !== null && next.type === TokenType.operator && next.value === "<") return this.#readGeneric(base.value);
 
 		const nullable = stream.current();
 		if (nullable !== null && nullable.type === TokenType.operator && nullable.value === "?") {
@@ -45,6 +29,25 @@ export class TypeReader {
 		}
 
 		return base.value;
+	}
+
+	#readGeneric(base: string): string {
+		const stream = this.#stream;
+		stream.advance();
+		const typeArgs: string[] = [];
+		let depth = 1;
+		while (true) {
+			const token = stream.current();
+			if (token === null || depth === 0) break;
+			if (token.type === TokenType.operator && token.value === "<") { depth++; stream.advance(); continue; }
+			if (token.type === TokenType.operator && token.value === ">") { depth--; if (depth === 0) break; stream.advance(); continue; }
+			if (token.type === TokenType.identifier) { typeArgs.push(this.readType()); continue; }
+			if (token.type === TokenType.separator && token.value === ",") { stream.advance(); continue; }
+			stream.advance();
+		}
+		const close = stream.current();
+		if (close !== null && close.type === TokenType.operator && close.value === ">") stream.advance();
+		return `${base}<${typeArgs.join(", ")}>`;
 	}
 
 	readParams(): ParameterDefinition[] {

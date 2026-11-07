@@ -1,40 +1,48 @@
 "use strict";
 
 import "adaptive-extender/node";
-import * as path from "path";
+import Path from "node:path";
 import { type ExtensionContext, workspace } from "vscode";
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node.js";
 
 //#region Extension controller
 class ExtensionController {
-	#client: LanguageClient | undefined;
+	static #instance: ExtensionController | null = null;
+	#client: LanguageClient | null = null;
+
+	static get instance(): ExtensionController {
+		if (ExtensionController.#instance === null) {
+			ExtensionController.#instance = new ExtensionController();
+		}
+		return ExtensionController.#instance;
+	}
 
 	start(context: ExtensionContext): void {
-		const module = context.asAbsolutePath(path.join("dist", "controllers", "server.js"));
-		const optionsServer: ServerOptions = {
+		const module = context.asAbsolutePath(Path.join("dist", "controllers", "server.js"));
+		const serverOptions: ServerOptions = {
 			run: { module, transport: TransportKind.ipc },
 			debug: { module, transport: TransportKind.ipc, options: { execArgv: ["--nolazy", "--inspect=6009"] } }
 		};
-		const optionsClient: LanguageClientOptions = {
+		const clientOptions: LanguageClientOptions = {
 			documentSelector: [{ scheme: "file", language: "qrz" }],
 			synchronize: { fileEvents: workspace.createFileSystemWatcher("**/.qrz") }
 		};
-		const client = this.#client = new LanguageClient("quartzLanguageServer", "Quartz Language Server", optionsServer, optionsClient);
-		client.start();
+		const client = this.#client = new LanguageClient("quartzLanguageServer", "Quartz Language Server", serverOptions, clientOptions);
+		void client.start();
 	}
 
-	stop(): Thenable<void> | undefined {
-		return this.#client?.stop();
+	async stop(): Promise<void> {
+		const client = this.#client;
+		if (client === null) return;
+		await client.stop();
 	}
 }
 //#endregion
 
-const controller = new ExtensionController();
-
 export function activate(context: ExtensionContext): void {
-	controller.start(context);
+	ExtensionController.instance.start(context);
 }
 
-export function deactivate(): Thenable<void> | undefined {
-	return controller.stop();
+export function deactivate(): Promise<void> {
+	return ExtensionController.instance.stop();
 }

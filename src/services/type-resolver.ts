@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { FieldDefinition, FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
 import { GenericType, MemberSet } from "../models/type-members.js";
 import { SymbolTable } from "./symbol-table.js";
@@ -8,8 +8,8 @@ import { ResolutionContext } from "./resolution-context.js";
 
 //#region Backward scanner
 class BackwardScanner {
-	static #patternIdentifierChar: RegExp = /[A-Za-z_0-9]/;
-	static #patternOperatorChar: RegExp = /[^ \t\n\r()\[\]"'A-Za-z_0-9]/;
+	static #identifier: RegExp = /[A-Za-z_0-9]/;
+	static #operator: RegExp = /[^ \t\n\r()\[\]"'A-Za-z_0-9]/;
 
 	#text: string;
 	#cursor: number;
@@ -24,50 +24,64 @@ class BackwardScanner {
 	get isValid(): boolean { return this.#cursor >= 0; }
 
 	isIdentifierChar(): boolean {
-		return this.#cursor >= 0 && BackwardScanner.#patternIdentifierChar.test(this.#text[this.#cursor]);
+		const cursor = this.#cursor;
+		return cursor >= 0 && BackwardScanner.#identifier.test(this.#text[cursor]);
 	}
 
 	isAt(char: string): boolean {
-		return this.#cursor >= 0 && this.#text[this.#cursor] === char;
+		const cursor = this.#cursor;
+		return cursor >= 0 && this.#text[cursor] === char;
 	}
 
 	matches(pattern: RegExp): boolean {
-		return this.#cursor >= 0 && pattern.test(this.#text[this.#cursor]);
+		const cursor = this.#cursor;
+		return cursor >= 0 && pattern.test(this.#text[cursor]);
 	}
 
 	skipWhitespace(): void {
-		while (this.#cursor >= 0 && (this.#text[this.#cursor] === " " || this.#text[this.#cursor] === "\t")) this.#cursor--;
+		const text = this.#text;
+		let cursor = this.#cursor;
+		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
+		this.#cursor = cursor;
 	}
 
 	skipIdentifier(): void {
-		while (this.#cursor >= 0 && BackwardScanner.#patternIdentifierChar.test(this.#text[this.#cursor])) this.#cursor--;
+		const text = this.#text;
+		const identifier = BackwardScanner.#identifier;
+		let cursor = this.#cursor;
+		while (cursor >= 0 && identifier.test(text[cursor])) cursor--;
+		this.#cursor = cursor;
 	}
 
 	skipPaired(close: string, open: string): void {
+		const text = this.#text;
 		let depth = 1;
-		this.#cursor--;
-		while (this.#cursor >= 0 && depth > 0) {
-			if (this.#text[this.#cursor] === close) depth++;
-			else if (this.#text[this.#cursor] === open) depth--;
-			this.#cursor--;
+		let cursor = this.#cursor - 1;
+		while (cursor >= 0 && depth > 0) {
+			if (text[cursor] === close) depth++;
+			else if (text[cursor] === open) depth--;
+			cursor--;
 		}
+		this.#cursor = cursor;
 	}
 
 	skipValue(): void {
 		if (!this.isValid) return;
-		const ch = this.#text[this.#cursor];
-		if (ch === ")") { this.skipPaired(")", "("); this.skipIdentifier(); return; }
-		if (ch === "]") { this.skipPaired("]", "["); this.skipIdentifier(); return; }
-		if (ch === '"') {
-			this.#cursor--;
-			while (this.#cursor >= 0 && !(this.#text[this.#cursor] === '"' && (this.#cursor === 0 || this.#text[this.#cursor - 1] !== "\\"))) this.#cursor--;
-			this.#cursor--;
+		const text = this.#text;
+		const start = this.#cursor;
+		const char = text[start];
+		if (char === ")") { this.skipPaired(")", "("); this.skipIdentifier(); return; }
+		if (char === "]") { this.skipPaired("]", "["); this.skipIdentifier(); return; }
+		if (char === '"') {
+			let cursor = start - 1;
+			while (cursor >= 0 && !(text[cursor] === '"' && (cursor === 0 || text[cursor - 1] !== "\\"))) cursor--;
+			this.#cursor = cursor - 1;
 			return;
 		}
-		if (ch === "'") {
-			this.#cursor--;
-			while (this.#cursor >= 0 && this.#text[this.#cursor] !== "'") this.#cursor--;
-			this.#cursor--;
+		if (char === "'") {
+			let cursor = start - 1;
+			while (cursor >= 0 && text[cursor] !== "'") cursor--;
+			this.#cursor = cursor - 1;
 			return;
 		}
 		this.skipIdentifier();
@@ -80,13 +94,17 @@ class BackwardScanner {
 	}
 
 	readOperator(): string {
-		const exclusiveEnd = this.#cursor + 1;
-		while (this.#cursor >= 0 && BackwardScanner.#patternOperatorChar.test(this.#text[this.#cursor])) this.#cursor--;
-		return this.#text.slice(this.#cursor + 1, exclusiveEnd);
+		const text = this.#text;
+		const operator = BackwardScanner.#operator;
+		let cursor = this.#cursor;
+		const end = cursor + 1;
+		while (cursor >= 0 && operator.test(text[cursor])) cursor--;
+		this.#cursor = cursor;
+		return text.slice(cursor + 1, end);
 	}
 
-	static isIdentChar(ch: string): boolean {
-		return BackwardScanner.#patternIdentifierChar.test(ch);
+	static isIdentifier(char: string): boolean {
+		return BackwardScanner.#identifier.test(char);
 	}
 }
 //#endregion
@@ -111,9 +129,9 @@ class StepState {
 
 //#region Type resolver
 export class TypeResolver {
-	static #patternTypeWord: RegExp = /\b[A-Za-z_]\w*\b/g;
+	static #word: RegExp = /\b[A-Za-z_]\w*\b/g;
 
-	#memberCache: Map<string, MemberSet> = new Map();
+	#cache: Map<string, MemberSet> = new Map();
 
 	static toGeneric(typeName: string): GenericType {
 		const index = typeName.indexOf("<");
@@ -140,13 +158,14 @@ export class TypeResolver {
 
 	static mapWith(typeName: string, substitution: Map<string, string>): string {
 		if (substitution.size === 0) return typeName;
-		const pattern = TypeResolver.#patternTypeWord;
+		const pattern = TypeResolver.#word;
 		pattern.lastIndex = 0;
 		return typeName.replace(pattern, word => substitution.get(word) ?? word);
 	}
 
-	getAllMembers(baseTypeName: string, runtimeTable: SymbolTable): MemberSet {
-		const cached = this.#memberCache.get(baseTypeName);
+	getAllMembers(baseTypeName: string, runtime: SymbolTable): MemberSet {
+		const cache = this.#cache;
+		const cached = cache.get(baseTypeName);
 		if (cached !== undefined) return cached;
 
 		const methods: FunctionDefinition[] = [];
@@ -158,15 +177,15 @@ export class TypeResolver {
 		let step = new StepState(baseTypeName, new Map<string, string>());
 		while (!visited.has(step.name)) {
 			visited.add(step.name);
-			const typeDefinition = runtimeTable.getType(step.name);
-			if (typeDefinition === undefined) break;
+			const typeDefinition = runtime.getType(step.name);
+			if (typeDefinition === null) break;
 
 			for (const method of typeDefinition.methods) {
-				const { name, parameters, result: returnType } = method;
-				const key = `${name}/${parameters.map(p => p.typeName).join(",")}`;
+				const { name, parameters, result } = method;
+				const key = `${name}/${parameters.map(parameter => parameter.typeName).join(",")}`;
 				if (seenMethod.has(key)) continue;
 				seenMethod.add(key);
-				methods.push(new FunctionDefinition(name, parameters.map(parameter => new ParameterDefinition(parameter.name, step.applyTo(parameter.typeName))), step.applyTo(returnType), step.name));
+				methods.push(new FunctionDefinition(name, parameters.map(parameter => new ParameterDefinition(parameter.name, step.applyTo(parameter.typeName))), step.applyTo(result), step.name, null));
 			}
 
 			for (const field of typeDefinition.fields) {
@@ -176,15 +195,16 @@ export class TypeResolver {
 				fields.push(new FieldDefinition(name, step.applyTo(typeName)));
 			}
 
-			if (typeDefinition.parent === undefined) break;
-			const { base, typeArgs } = TypeResolver.toGeneric(typeDefinition.parent);
-			const baseType = runtimeTable.getType(base);
-			if (baseType === undefined) break;
+			const { parent } = typeDefinition;
+			if (parent === null) break;
+			const { base, typeArgs } = TypeResolver.toGeneric(parent);
+			const baseType = runtime.getType(base);
+			if (baseType === null) break;
 			step = new StepState(base, TypeResolver.toSubstitution(baseType.typeParams, typeArgs.map(word => step.applyTo(word))));
 		}
 
 		const result = new MemberSet(methods, fields);
-		this.#memberCache.set(baseTypeName, result);
+		cache.set(baseTypeName, result);
 		return result;
 	}
 
@@ -207,16 +227,16 @@ export class TypeResolver {
 
 		if (scanner.isAt("]")) {
 			scanner.skipPaired("]", "[");
-			const indexeeType = this.typeAt(scanner.cursor + 1, context);
-			if (indexeeType === null) return null;
-			const { base, typeArgs } = TypeResolver.toGeneric(indexeeType);
+			const indexee = this.typeAt(scanner.cursor + 1, context);
+			if (indexee === null) return null;
+			const { base, typeArgs } = TypeResolver.toGeneric(indexee);
 			const typeDefinition = context.findType(base);
-			if (typeDefinition === undefined) return null;
+			if (typeDefinition === null) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-			const { methods } = this.getAllMembers(base, context.runtimeTable);
-			const indexOp = methods.find(entry => entry.name === "[]" && entry.parameters.length === 1);
-			if (indexOp === undefined) return null;
-			return TypeResolver.mapWith(indexOp.result, substitution);
+			const { methods } = this.getAllMembers(base, context.runtime);
+			const indexer = methods.find(entry => entry.name === "[]" && entry.parameters.length === 1);
+			if (indexer === undefined) return null;
+			return TypeResolver.mapWith(indexer.result, substitution);
 		}
 
 		if (scanner.isIdentifierChar()) {
@@ -230,29 +250,29 @@ export class TypeResolver {
 		return null;
 	}
 
-	#typeForName(cursorBefore: number, name: string, isCall: boolean, context: ResolutionContext): string | null {
-		const scanner = new BackwardScanner(context.text, cursorBefore);
+	#typeForName(cursor: number, name: string, isCall: boolean, context: ResolutionContext): string | null {
+		const scanner = new BackwardScanner(context.text, cursor);
 		scanner.skipWhitespace();
 		if (scanner.isAt(".")) {
-			const receiverType = this.typeAt(scanner.cursor, context);
-			if (receiverType === null) return null;
-			const { base, typeArgs } = TypeResolver.toGeneric(receiverType);
+			const receiver = this.typeAt(scanner.cursor, context);
+			if (receiver === null) return null;
+			const { base, typeArgs } = TypeResolver.toGeneric(receiver);
 			const typeDefinition = context.findType(base);
-			if (typeDefinition === undefined) return null;
+			if (typeDefinition === null) return null;
 			const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
-			const members = this.getAllMembers(base, context.runtimeTable);
+			const members = this.getAllMembers(base, context.runtime);
 			if (isCall) {
 				const method = members.findMethod(name);
-				if (method === undefined) return null;
+				if (method === null) return null;
 				return TypeResolver.mapWith(method.result, substitution);
 			}
 			const field = members.findField(name);
-			if (field === undefined) return null;
+			if (field === null) return null;
 			return TypeResolver.mapWith(field.typeName, substitution);
 		}
 		if (isCall) {
 			const overloads = context.findFunctions(name);
-			if (overloads !== undefined && overloads.length > 0) return overloads[0].result;
+			if (overloads !== null && overloads.length > 0) return overloads[0].result;
 		}
 		return this.#typeOf(name, context);
 	}
@@ -271,27 +291,26 @@ export class TypeResolver {
 		const operator = scanner.readOperator();
 		if (operator === "." || operator === ":" || operator === ";" || operator.length === 0) return this.typeAt(closeParen, context);
 
-		const opStart = scanner.cursor + 1;
-		const leftType = this.typeAt(opStart, context);
+		const start = scanner.cursor + 1;
+		const leftType = this.typeAt(start, context);
 		if (leftType === null) return this.typeAt(closeParen, context);
 
 		const { base, typeArgs } = TypeResolver.toGeneric(leftType);
-		const typeDef = context.findType(base);
-		if (typeDef === undefined) return this.typeAt(closeParen, context);
-		const substitution = TypeResolver.toSubstitution(typeDef.typeParams, typeArgs);
-		const { methods } = this.getAllMembers(base, context.runtimeTable);
-		const binaryMethods = methods.filter(m => m.name === `[${operator}]` && m.parameters.length > 0);
+		const typeDefinition = context.findType(base);
+		if (typeDefinition === null) return this.typeAt(closeParen, context);
+		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
+		const { methods } = this.getAllMembers(base, context.runtime);
+		const binaryMethods = methods.filter(method => method.name === `[${operator}]` && method.parameters.length > 0);
 		if (binaryMethods.length === 0) return this.typeAt(closeParen, context);
 
 		const rightType = this.typeAt(closeParen, context);
-		const matched = (rightType !== null
-			? binaryMethods.find(m => TypeResolver.mapWith(m.parameters[0].typeName, substitution) === rightType)
-			: undefined) ?? binaryMethods[0];
+		let matched = binaryMethods[0];
+		if (rightType !== null) matched = binaryMethods.find(method => TypeResolver.mapWith(method.parameters[0].typeName, substitution) === rightType) ?? matched;
 		return TypeResolver.mapWith(matched.result, substitution);
 	}
 
-	#typeFromGeneric(text: string, startCursor: number): string | null {
-		let cursor = startCursor;
+	#typeFromGeneric(text: string, start: number): string | null {
+		let cursor = start;
 		const typeEnd = cursor;
 		let depth = 1;
 		cursor--;
@@ -301,9 +320,8 @@ export class TypeResolver {
 			cursor--;
 		}
 		while (cursor >= 0 && (text[cursor] === " " || text[cursor] === "\t")) cursor--;
-		if (cursor < 0 || !BackwardScanner.isIdentChar(text[cursor])) return null;
-		const nameEnd = cursor;
-		while (cursor >= 0 && BackwardScanner.isIdentChar(text[cursor])) cursor--;
+		if (cursor < 0 || !BackwardScanner.isIdentifier(text[cursor])) return null;
+		while (cursor >= 0 && BackwardScanner.isIdentifier(text[cursor])) cursor--;
 		return text.slice(cursor + 1, typeEnd + 1).replace(/\s+/g, "");
 	}
 
@@ -312,11 +330,11 @@ export class TypeResolver {
 		if (name === "null") return "Null";
 		if (name.length > 0 && name[0] >= "0" && name[0] <= "9") return "Number";
 		const variable = context.findVariable(name);
-		if (variable !== undefined) return variable.typeName;
+		if (variable !== null) return variable.typeName;
 		const overloads = context.findFunctions(name);
-		if (overloads !== undefined && overloads.length > 0) return "Function";
+		if (overloads !== null && overloads.length > 0) return "Function";
 		const typeDefinition = context.findType(name);
-		if (typeDefinition !== undefined && !typeDefinition.isTemplate) return name;
+		if (typeDefinition !== null && !typeDefinition.isTemplate) return name;
 		return null;
 	}
 }

@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { FunctionDefinition } from "./symbol-definitions.js";
 import { FieldDefinition } from "./symbol-definitions.js";
 
@@ -38,12 +38,12 @@ export class MemberSet {
 	get methods(): FunctionDefinition[] { return this.#methods; }
 	get fields(): FieldDefinition[] { return this.#fields; }
 
-	findMethod(name: string): FunctionDefinition | undefined {
-		return this.#methods.find(entry => entry.name === name && !entry.name.startsWith("["));
+	findMethod(name: string): FunctionDefinition | null {
+		return this.#methods.find(entry => entry.name === name && !entry.name.startsWith("[")) ?? null;
 	}
 
-	findField(name: string): FieldDefinition | undefined {
-		return this.#fields.find(entry => entry.name === name);
+	findField(name: string): FieldDefinition | null {
+		return this.#fields.find(entry => entry.name === name) ?? null;
 	}
 }
 //#endregion

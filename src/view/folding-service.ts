@@ -1,16 +1,16 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node.js";
+import { FoldingRange, FoldingRangeKind } from "vscode-languageserver-types";
 
 //#region Folding service
 export class FoldingService {
-	static #patternLineSplit: RegExp = /\r?\n/;
+	static #newline: RegExp = /\r?\n/;
 
 	getRanges(document: TextDocument): FoldingRange[] {
 		const ranges: FoldingRange[] = [];
-		const lines = document.getText().split(FoldingService.#patternLineSplit);
+		const lines = document.getText().split(FoldingService.#newline);
 		const stack: number[] = [];
 
 		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {

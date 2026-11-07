@@ -1,8 +1,8 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { Diagnostic } from "vscode-languageserver/node.js";
+import { Diagnostic } from "vscode-languageserver-types";
 import { type DiagnosticRule } from "../models/diagnostic-rule.js";
 import { NamingRule } from "./naming-rule.js";
 

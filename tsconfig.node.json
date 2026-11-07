@@ -1,0 +1,19 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": [ "ES2024" ],
+		"types": [ "node", "vscode" ],
+		"skipLibCheck": true
+	},
+	"include": [
+		"vite.config.ts",
+		"environment/**/*.ts",
+		"src/controllers/extension.ts",
+		"src/controllers/server.ts",
+		"src/services/completion-service.ts",
+		"src/services/hover-service.ts",
+		"src/services/service-factory.ts",
+		"src/services/signature-service.ts",
+		"src/services/symbol-service.ts"
+	]
+}

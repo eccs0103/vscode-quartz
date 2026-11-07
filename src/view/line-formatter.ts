@@ -1,22 +1,22 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 
 //#region Line formatter
 export class LineFormatter {
-	static #patternIndent: RegExp = /^\s*/;
-	static #patternControlKeyword: RegExp = /\b(if|else|while|for|in)$/;
-	static #patternOperator: RegExp = /[:=!&|<>]/;
-	static #patternUnaryContext: RegExp = /[\s(,:]$/;
-	static #patternGenericTail: RegExp = /[A-Z][a-zA-Z0-9_]*$/;
-	static #patternGenericNextType: RegExp = /^[A-Z]/;
-	static #patternOperandBefore: RegExp = /[a-zA-Z0-9_)>]/;
-	static #patternOperandAfter: RegExp = /[a-zA-Z0-9_"(<]/;
-	static #patternSpaces: RegExp = /\s+/g;
-	static #patternSpaceBeforePunctuation: RegExp = /\s+([;,)])/g;
+	static #indent: RegExp = /^\s*/;
+	static #keyword: RegExp = /\b(if|else|while|for|in)$/;
+	static #operator: RegExp = /[:=!&|<>]/;
+	static #unary: RegExp = /[\s(,:]$/;
+	static #pascal: RegExp = /[A-Z][a-zA-Z0-9_]*$/;
+	static #capital: RegExp = /^[A-Z]/;
+	static #before: RegExp = /[a-zA-Z0-9_)>]/;
+	static #after: RegExp = /[a-zA-Z0-9_"(<]/;
+	static #spaces: RegExp = /\s+/g;
+	static #punctuation: RegExp = /\s+([;,)])/g;
 
 	static format(line: string): string {
-		const indent = line.match(LineFormatter.#patternIndent)?.[0] ?? String.empty;
+		const indent = line.match(LineFormatter.#indent)?.[0] ?? String.empty;
 		const content = line.trim();
 
 		let inString = false;
@@ -45,7 +45,7 @@ export class LineFormatter {
 
 			if (inString) { result += char; continue; }
 
-			if (char === "(" && offset > 0 && LineFormatter.#patternControlKeyword.test(result) && result[result.length - 1] !== " ") result += " ";
+			if (char === "(" && offset > 0 && LineFormatter.#keyword.test(result) && result[result.length - 1] !== " ") result += " ";
 
 			if (char === ",") {
 				result += char;
@@ -59,10 +59,10 @@ export class LineFormatter {
 				break;
 			}
 
-			if (LineFormatter.#patternOperator.test(char) || char === "+" || char === "-" || char === "*" || char === "/") {
+			if (LineFormatter.#operator.test(char) || char === "+" || char === "-" || char === "*" || char === "/") {
 				const lastChar = result[result.length - 1];
-				const isUnary = (char === "+" || char === "-" || char === "!") && (LineFormatter.#patternUnaryContext.test(result) || result.length === 0);
-				const isGenericOpen = char === "<" && (LineFormatter.#patternGenericTail.test(result) || LineFormatter.#patternGenericNextType.test(next));
+				const isUnary = (char === "+" || char === "-" || char === "!") && (LineFormatter.#unary.test(result) || result.length === 0);
+				const isGenericOpen = char === "<" && (LineFormatter.#pascal.test(result) || LineFormatter.#capital.test(next));
 				const isGenericClose = char === ">" && typeDepth > 0;
 
 				if (isUnary) {
@@ -74,7 +74,7 @@ export class LineFormatter {
 					typeDepth--;
 					result += char;
 				} else {
-					if (lastChar && lastChar !== " " && LineFormatter.#patternOperandBefore.test(lastChar)) result += " ";
+					if (lastChar && lastChar !== " " && LineFormatter.#before.test(lastChar)) result += " ";
 					result += char;
 					if ((char === "<" || char === ">" || char === "!" || char === "=") && next === "=") {
 						result += next;
@@ -82,7 +82,7 @@ export class LineFormatter {
 						if (offset < content.length - 1 && content[offset + 1] !== " ") result += " ";
 						continue;
 					}
-					if (next && next !== " " && LineFormatter.#patternOperandAfter.test(next)) result += " ";
+					if (next && next !== " " && LineFormatter.#after.test(next)) result += " ";
 				}
 				continue;
 			}
@@ -90,17 +90,17 @@ export class LineFormatter {
 			result += char;
 		}
 
-		const commentStart = result.indexOf("//");
-		const spacesPattern = LineFormatter.#patternSpaces;
-		const punctuationPattern = LineFormatter.#patternSpaceBeforePunctuation;
-		spacesPattern.lastIndex = 0;
-		punctuationPattern.lastIndex = 0;
-		if (commentStart !== -1) {
-			const code = result.substring(0, commentStart);
-			const comment = result.substring(commentStart);
-			result = code.replace(spacesPattern, " ").replace(punctuationPattern, "$1") + comment;
+		const start = result.indexOf("//");
+		const spaces = LineFormatter.#spaces;
+		const punctuation = LineFormatter.#punctuation;
+		spaces.lastIndex = 0;
+		punctuation.lastIndex = 0;
+		if (start !== -1) {
+			const code = result.substring(0, start);
+			const comment = result.substring(start);
+			result = code.replace(spaces, " ").replace(punctuation, "$1") + comment;
 		} else {
-			result = result.replace(spacesPattern, " ").replace(punctuationPattern, "$1");
+			result = result.replace(spaces, " ").replace(punctuation, "$1");
 		}
 
 		return indent + result;

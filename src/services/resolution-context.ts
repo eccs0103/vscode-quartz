@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { FunctionDefinition, TypeDefinition, VariableDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 
@@ -8,31 +8,32 @@ import { SymbolTable } from "./symbol-table.js";
 export class ResolutionContext {
 	#text: string;
 	#line: number;
-	#runtimeTable: SymbolTable;
-	#docTable: SymbolTable;
+	#runtime: SymbolTable;
+	#document: SymbolTable;
 
-	constructor(text: string, line: number, runtimeTable: SymbolTable, docTable: SymbolTable) {
+	constructor(text: string, line: number, runtime: SymbolTable, document: SymbolTable) {
 		this.#text = text;
 		this.#line = line;
-		this.#runtimeTable = runtimeTable;
-		this.#docTable = docTable;
+		this.#runtime = runtime;
+		this.#document = document;
 	}
 
 	get text(): string { return this.#text; }
 	get line(): number { return this.#line; }
-	get runtimeTable(): SymbolTable { return this.#runtimeTable; }
-	get docTable(): SymbolTable { return this.#docTable; }
+	get runtime(): SymbolTable { return this.#runtime; }
+	get document(): SymbolTable { return this.#document; }
 
-	findType(name: string): TypeDefinition | undefined {
-		return this.#runtimeTable.getType(name);
+	findType(name: string): TypeDefinition | null {
+		return this.#runtime.getType(name);
 	}
 
-	findFunctions(name: string): FunctionDefinition[] | undefined {
-		return this.#runtimeTable.getFunctions(name) ?? this.#docTable.getFunctions(name);
+	findFunctions(name: string): FunctionDefinition[] | null {
+		return this.#runtime.getFunctions(name) ?? this.#document.getFunctions(name);
 	}
 
-	findVariable(name: string): VariableDefinition | undefined {
-		return this.#runtimeTable.findVariableAt(name, this.#line) ?? this.#docTable.findVariableAt(name, this.#line);
+	findVariable(name: string): VariableDefinition | null {
+		const line = this.#line;
+		return this.#runtime.findVariableAt(name, line) ?? this.#document.findVariableAt(name, line);
 	}
 }
 //#endregion

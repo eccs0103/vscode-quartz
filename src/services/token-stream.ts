@@ -1,6 +1,6 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { Lexer } from "./lexer.js";
 import { Token, TokenType } from "../models/token.js";
 
@@ -14,12 +14,15 @@ export class TokenStream {
 	}
 
 	current(): Token | null {
-		return this.#cursor < this.#tokens.length ? this.#tokens[this.#cursor] : null;
+		const tokens = this.#tokens;
+		const cursor = this.#cursor;
+		return cursor < tokens.length ? tokens[cursor] : null;
 	}
 
 	peek(offset: number): Token | null {
+		const tokens = this.#tokens;
 		const index = this.#cursor + offset;
-		return index < this.#tokens.length ? this.#tokens[index] : null;
+		return index < tokens.length ? tokens[index] : null;
 	}
 
 	advance(): Token | null {

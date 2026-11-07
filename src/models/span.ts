@@ -1,7 +1,7 @@
 "use strict";
 
-import "adaptive-extender/node";
-import { Position, Range } from "vscode-languageserver/node.js";
+import "adaptive-extender/core";
+import { Position, Range } from "vscode-languageserver-types";
 
 const { min } = Math;
 
@@ -55,11 +55,11 @@ export class Span {
 		this.end = end;
 	}
 
-	containsLine(line: number): boolean {
-		return this.begin.line <= line && line <= this.end.line;
-	}
-
-	contains(cursor: Cursor): boolean {
+	contains(line: number): boolean;
+	contains(cursor: Cursor): boolean;
+	contains(target: number | Cursor): boolean {
+		if (typeof target === "number") return this.begin.line <= target && target <= this.end.line;
+		const cursor = target;
 		if (cursor.isBefore(this.begin)) return false;
 		if (this.end.isBefore(cursor)) return false;
 		return true;

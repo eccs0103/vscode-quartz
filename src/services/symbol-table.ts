@@ -1,68 +1,68 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TypeDefinition, FunctionDefinition, VariableDefinition } from "../models/symbol-definitions.js";
 
 //#region Symbol table
 export class SymbolTable {
-	#typeMap: Map<string, TypeDefinition> = new Map();
-	#functionMap: Map<string, FunctionDefinition[]> = new Map();
-	#variableList: VariableDefinition[] = [];
+	#types: Map<string, TypeDefinition> = new Map();
+	#functions: Map<string, FunctionDefinition[]> = new Map();
+	#variables: VariableDefinition[] = [];
 
 	addType(typeDefinition: TypeDefinition): void {
-		this.#typeMap.set(typeDefinition.name, typeDefinition);
+		this.#types.set(typeDefinition.name, typeDefinition);
 	}
 
-	addFunction(funcDefinition: FunctionDefinition): void {
-		const functionMap = this.#functionMap;
-		functionMap.add(funcDefinition.name, []);
-		functionMap.get(funcDefinition.name)?.push(funcDefinition);
+	addFunction(definition: FunctionDefinition): void {
+		const functions = this.#functions;
+		functions.add(definition.name, []);
+		functions.get(definition.name)?.push(definition);
 	}
 
 	addVariable(variableDefinition: VariableDefinition): void {
-		this.#variableList.push(variableDefinition);
+		this.#variables.push(variableDefinition);
 	}
 
-	getType(name: string): TypeDefinition | undefined {
-		return this.#typeMap.get(name);
+	getType(name: string): TypeDefinition | null {
+		return this.#types.get(name) ?? null;
 	}
 
 	hasType(name: string): boolean {
-		return this.#typeMap.has(name);
+		return this.#types.has(name);
 	}
 
 	typeNames(): IterableIterator<string> {
-		return this.#typeMap.keys();
+		return this.#types.keys();
 	}
 
 	typeEntries(): IterableIterator<[string, TypeDefinition]> {
-		return this.#typeMap.entries();
+		return this.#types.entries();
 	}
 
-	getFunctions(name: string): FunctionDefinition[] | undefined {
-		return this.#functionMap.get(name);
+	getFunctions(name: string): FunctionDefinition[] | null {
+		return this.#functions.get(name) ?? null;
 	}
 
 	functionEntries(): IterableIterator<[string, FunctionDefinition[]]> {
-		return this.#functionMap.entries();
+		return this.#functions.entries();
 	}
 
 	getVariablesAt(line: number): VariableDefinition[] {
-		return this.#variableList.filter(variable => variable.isInScope(line));
+		return this.#variables.filter(variable => variable.isInScope(line));
 	}
 
-	findVariableAt(name: string, line: number): VariableDefinition | undefined {
-		return this.#variableList.find(variable => variable.name === name && variable.isInScope(line));
+	findVariableAt(name: string, line: number): VariableDefinition | null {
+		return this.#variables.find(variable => variable.name === name && variable.isInScope(line)) ?? null;
 	}
 
 	hasVariable(name: string): boolean {
-		return this.#variableList.some(variable => variable.name === name);
+		return this.#variables.some(variable => variable.name === name);
 	}
 
 	merge(other: SymbolTable): void {
 		for (const [, typeDefinition] of other.typeEntries()) this.addType(typeDefinition);
 		for (const [, overloads] of other.functionEntries()) overloads.forEach(this.addFunction.bind(this));
-		for (const variableDefinition of other.#variableList) this.addVariable(variableDefinition);
+		for (const variableDefinition of other.#variables) this.addVariable(variableDefinition);
 	}
 }
 //#endregion

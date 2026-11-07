@@ -1,20 +1,24 @@
 "use strict";
 
-import "adaptive-extender/node";
+import "adaptive-extender/core";
 import { TokenType } from "../models/token.js";
-import { TypeDefinition, FieldDefinition, FunctionDefinition, ParameterDefinition } from "../models/symbol-definitions.js";
+import { TypeDefinition, FieldDefinition, FunctionDefinition } from "../models/symbol-definitions.js";
 import { SymbolTable } from "./symbol-table.js";
 import { TokenStream } from "./token-stream.js";
 import { TypeReader } from "./type-reader.js";
 
 //#region Header parser
 export class HeaderParser {
-	#stream!: TokenStream;
-	#reader!: TypeReader;
+	#stream: TokenStream;
+	#reader: TypeReader;
 
-	parse(code: string): SymbolTable {
-		this.#stream = new TokenStream(code);
-		this.#reader = new TypeReader(this.#stream);
+	constructor(code: string) {
+		const stream = new TokenStream(code);
+		this.#stream = stream;
+		this.#reader = new TypeReader(stream);
+	}
+
+	parse(): SymbolTable {
 		const stream = this.#stream;
 		const table = new SymbolTable();
 
@@ -53,7 +57,7 @@ export class HeaderParser {
 			if (closeAngle !== null && closeAngle.type === TokenType.operator) stream.advance();
 		}
 
-		let parent: string | undefined;
+		let parent: string | null = null;
 		const fromToken = stream.current();
 		if (fromToken !== null && fromToken.type === TokenType.identifier && fromToken.value === "from") {
 			stream.advance();
@@ -84,6 +88,7 @@ export class HeaderParser {
 
 	#readMember(methods: FunctionDefinition[], fields: FieldDefinition[]): void {
 		const stream = this.#stream;
+		const reader = this.#reader;
 		const first = stream.current();
 		if (first === null) return;
 
@@ -99,10 +104,10 @@ export class HeaderParser {
 			name += "]";
 			const afterBracket = stream.current();
 			if (afterBracket !== null && afterBracket.type === TokenType.bracket) stream.advance();
-			const params = this.#reader.readParams();
-			const retType = this.#reader.readType();
+			const params = reader.readParams();
+			const result = reader.readType();
 			stream.skipSemicolon();
-			methods.push(new FunctionDefinition(name, params, retType));
+			methods.push(new FunctionDefinition(name, params, result, null, null));
 			return;
 		}
 
@@ -116,15 +121,16 @@ export class HeaderParser {
 
 		const next = stream.current();
 		if (next !== null && next.type === TokenType.bracket && next.value === "(") {
-			const params = this.#reader.readParams();
-			const retType = this.#reader.readType();
+			const params = reader.readParams();
+			const result = reader.readType();
 			stream.skipSemicolon();
-			methods.push(new FunctionDefinition(name, params, retType));
-		} else {
-			const typeName = this.#reader.readType();
-			stream.skipSemicolon();
-			fields.push(new FieldDefinition(name, typeName));
+			methods.push(new FunctionDefinition(name, params, result, null, null));
+			return;
 		}
+
+		const typeName = reader.readType();
+		stream.skipSemicolon();
+		fields.push(new FieldDefinition(name, typeName));
 	}
 }
 //#endregion
