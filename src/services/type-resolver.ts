@@ -277,33 +277,33 @@ export class TypeResolver {
 		return this.#typeOf(name, context);
 	}
 
-	#typeOfGroup(closeParen: number, context: ResolutionContext): string | null {
-		const scanner = new BackwardScanner(context.text, closeParen - 1);
+	#typeOfGroup(close: number, context: ResolutionContext): string | null {
+		const scanner = new BackwardScanner(context.text, close - 1);
 		scanner.skipWhitespace();
 		if (!scanner.isValid) return null;
 
 		scanner.skipValue();
 		scanner.skipWhitespace();
-		if (!scanner.isValid) return this.typeAt(closeParen, context);
+		if (!scanner.isValid) return this.typeAt(close, context);
 
-		if (scanner.isIdentifierChar() || /[()\[\]"']/.test(scanner.char)) return this.typeAt(closeParen, context);
+		if (scanner.isIdentifierChar() || /[()\[\]"']/.test(scanner.char)) return this.typeAt(close, context);
 
 		const operator = scanner.readOperator();
-		if (operator === "." || operator === ":" || operator === ";" || operator.length === 0) return this.typeAt(closeParen, context);
+		if (operator === "." || operator === ":" || operator === ";" || String.isEmpty(operator)) return this.typeAt(close, context);
 
 		const start = scanner.cursor + 1;
 		const leftType = this.typeAt(start, context);
-		if (leftType === null) return this.typeAt(closeParen, context);
+		if (leftType === null) return this.typeAt(close, context);
 
 		const { base, typeArgs } = TypeResolver.toGeneric(leftType);
 		const typeDefinition = context.findType(base);
-		if (typeDefinition === null) return this.typeAt(closeParen, context);
+		if (typeDefinition === null) return this.typeAt(close, context);
 		const substitution = TypeResolver.toSubstitution(typeDefinition.typeParams, typeArgs);
 		const { methods } = this.getAllMembers(base, context.runtime);
 		const binaryMethods = methods.filter(method => method.name === `[${operator}]` && method.parameters.length > 0);
-		if (binaryMethods.length === 0) return this.typeAt(closeParen, context);
+		if (binaryMethods.length === 0) return this.typeAt(close, context);
 
-		const rightType = this.typeAt(closeParen, context);
+		const rightType = this.typeAt(close, context);
 		let matched = binaryMethods[0];
 		if (rightType !== null) matched = binaryMethods.find(method => TypeResolver.mapWith(method.parameters[0].typeName, substitution) === rightType) ?? matched;
 		return TypeResolver.mapWith(matched.result, substitution);

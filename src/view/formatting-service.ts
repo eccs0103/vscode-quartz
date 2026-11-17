@@ -9,26 +9,26 @@ import { LineFormatter } from "./line-formatter.js";
 class BracketCount {
 	#opens: number;
 	#closes: number;
-	#leadingCloses: number;
+	#leading: number;
 
-	constructor(opens: number, closes: number, leadingCloses: number) {
+	constructor(opens: number, closes: number, leading: number) {
 		this.#opens = opens;
 		this.#closes = closes;
-		this.#leadingCloses = leadingCloses;
+		this.#leading = leading;
 	}
 
 	levelBefore(current: number): number {
-		return Math.max(0, current - this.#leadingCloses);
+		return Math.max(0, current - this.#leading);
 	}
 
 	levelAfter(current: number): number {
-		return Math.max(0, current + this.#opens - (this.#closes - this.#leadingCloses));
+		return Math.max(0, current + this.#opens - (this.#closes - this.#leading));
 	}
 
 	static fromLine(line: string): BracketCount {
 		let opens = 0;
 		let closes = 0;
-		let leadingCloses = 0;
+		let leading = 0;
 		let seen = false;
 		let quote = String.empty;
 		for (let offset = 0; offset < line.length; offset++) {
@@ -38,13 +38,25 @@ class BracketCount {
 				if (char === quote) quote = String.empty;
 				continue;
 			}
-			if (char === '"' || char === "'") { quote = char; seen = true; continue; }
+			if (char === '"' || char === "'") {
+				quote = char;
+				seen = true;
+				continue;
+			}
 			if (char === '/' && offset + 1 < line.length && line[offset + 1] === '/') break;
-			if (char === '{' || char === '[') { opens++; seen = true; }
-			else if (char === '}' || char === ']') { closes++; if (!seen) leadingCloses++; }
-			else if (char !== ' ' && char !== '\t') { seen = true; }
+			if (char === '{' || char === '[') {
+				opens++;
+				seen = true;
+				continue;
+			}
+			if (char === '}' || char === ']') {
+				closes++;
+				if (!seen) leading++;
+				continue;
+			}
+			if (char !== ' ' && char !== '\t') seen = true;
 		}
-		return new BracketCount(opens, closes, leadingCloses);
+		return new BracketCount(opens, closes, leading);
 	}
 }
 //#endregion

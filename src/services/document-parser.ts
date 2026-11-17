@@ -30,12 +30,14 @@ export class DocumentParser {
 		while (stream.current() !== null) {
 			if (this.#isFunctionDeclaration()) {
 				this.#readFunctionDeclaration();
-			} else if (this.#isVariableDeclaration()) {
+				continue;
+			}
+			if (this.#isVariableDeclaration()) {
 				this.#readVariableDeclaration(0, Number.MAX_SAFE_INTEGER);
 				stream.skipSemicolon();
-			} else {
-				stream.advance();
+				continue;
 			}
+			stream.advance();
 		}
 	}
 
@@ -215,7 +217,7 @@ export class DocumentParser {
 			const token = stream.current();
 			if (token === null) break;
 			if (token.type === TokenType.bracket && token.value === open) depth++;
-			else if (token.type === TokenType.bracket && token.value === close) depth--;
+			if (token.type === TokenType.bracket && token.value === close) depth--;
 			stream.advance();
 		}
 	}

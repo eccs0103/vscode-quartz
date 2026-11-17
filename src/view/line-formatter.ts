@@ -29,17 +29,15 @@ export class LineFormatter {
 			const next = offset < content.length - 1 ? content[offset + 1] : String.empty;
 
 			if ((char === '"' || char === "'") && (offset === 0 || content[offset - 1] !== "\\")) {
+				result += char;
 				if (!inString) {
 					inString = true;
 					openQuote = char;
-				} else if (openQuote === char) {
-					inString = false;
-					openQuote = String.empty;
-				} else {
-					result += char;
 					continue;
 				}
-				result += char;
+				if (openQuote !== char) continue;
+				inString = false;
+				openQuote = String.empty;
 				continue;
 			}
 
@@ -61,29 +59,33 @@ export class LineFormatter {
 
 			if (LineFormatter.#operator.test(char) || char === "+" || char === "-" || char === "*" || char === "/") {
 				const lastChar = result[result.length - 1];
-				const isUnary = (char === "+" || char === "-" || char === "!") && (LineFormatter.#unary.test(result) || result.length === 0);
+				const isUnary = (char === "+" || char === "-" || char === "!") && (LineFormatter.#unary.test(result) || String.isEmpty(result));
 				const isGenericOpen = char === "<" && (LineFormatter.#pascal.test(result) || LineFormatter.#capital.test(next));
 				const isGenericClose = char === ">" && typeDepth > 0;
 
 				if (isUnary) {
 					result += char;
-				} else if (isGenericOpen) {
+					continue;
+				}
+				if (isGenericOpen) {
 					typeDepth++;
 					result += char;
-				} else if (isGenericClose) {
+					continue;
+				}
+				if (isGenericClose) {
 					typeDepth--;
 					result += char;
-				} else {
-					if (lastChar && lastChar !== " " && LineFormatter.#before.test(lastChar)) result += " ";
-					result += char;
-					if ((char === "<" || char === ">" || char === "!" || char === "=") && next === "=") {
-						result += next;
-						offset++;
-						if (offset < content.length - 1 && content[offset + 1] !== " ") result += " ";
-						continue;
-					}
-					if (next && next !== " " && LineFormatter.#after.test(next)) result += " ";
+					continue;
 				}
+				if (lastChar && lastChar !== " " && LineFormatter.#before.test(lastChar)) result += " ";
+				result += char;
+				if ((char === "<" || char === ">" || char === "!" || char === "=") && next === "=") {
+					result += next;
+					offset++;
+					if (offset < content.length - 1 && content[offset + 1] !== " ") result += " ";
+					continue;
+				}
+				if (next && next !== " " && LineFormatter.#after.test(next)) result += " ";
 				continue;
 			}
 
@@ -95,15 +97,14 @@ export class LineFormatter {
 		const punctuation = LineFormatter.#punctuation;
 		spaces.lastIndex = 0;
 		punctuation.lastIndex = 0;
+		let code = result;
+		let comment = String.empty;
 		if (start !== -1) {
-			const code = result.substring(0, start);
-			const comment = result.substring(start);
-			result = code.replace(spaces, " ").replace(punctuation, "$1") + comment;
-		} else {
-			result = result.replace(spaces, " ").replace(punctuation, "$1");
+			code = result.substring(0, start);
+			comment = result.substring(start);
 		}
 
-		return indent + result;
+		return indent + code.replace(spaces, " ").replace(punctuation, "$1") + comment;
 	}
 }
 //#endregion

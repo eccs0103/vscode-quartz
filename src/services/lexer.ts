@@ -37,23 +37,18 @@ export class Lexer {
 				if (match === null) continue;
 
 				const value = match[0];
-				const startLine = line;
-				const startColumn = column;
+				const begin = new Cursor(line, column);
 				const newline = value.lastIndexOf("\n");
 
-				if (newline === -1) {
-					column += value.length;
-				} else {
+				column += value.length;
+				if (newline !== -1) {
 					line += value.split("\n").length - 1;
 					column = value.length - newline - 1;
 				}
 
 				if (type !== null) {
-					const finalType = type === TokenType.identifier && Lexer.#keywords.has(value)
-						? TokenType.keyword
-						: type;
-					const span = new Span(new Cursor(startLine, startColumn), new Cursor(line, column));
-					tokens.push(new Token(finalType, value, span));
+					const kind = type === TokenType.identifier && Lexer.#keywords.has(value) ? TokenType.keyword : type;
+					tokens.push(new Token(kind, value, new Span(begin, new Cursor(line, column))));
 				}
 
 				cursor += value.length;
@@ -61,11 +56,13 @@ export class Lexer {
 				break;
 			}
 
-			if (!matched) {
-				if (code[cursor] === "\n") { line++; column = 0; }
-				else { column++; }
-				cursor++;
+			if (matched) continue;
+			column++;
+			if (code[cursor] === "\n") {
+				line++;
+				column = 0;
 			}
+			cursor++;
 		}
 
 		return tokens;

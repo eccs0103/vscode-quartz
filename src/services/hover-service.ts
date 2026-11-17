@@ -127,17 +127,17 @@ export class HoverService {
 		const symbols = this.#symbols;
 		const typeDefinition = symbols.getType(word) ?? table.getType(word);
 		if (typeDefinition !== null) {
-			const memberLines: string[] = [];
-			for (const field of typeDefinition.fields) memberLines.push(`  ${field.format()}`);
+			const members: string[] = [];
+			for (const field of typeDefinition.fields) members.push(`  ${field.format()}`);
 			for (const { name, parameters, result } of typeDefinition.methods) {
 				if (name.startsWith("[")) continue;
-				memberLines.push(`  ${name}(${parameters.map(parameter => parameter.format()).join(", ")}) ${result}`);
+				members.push(`  ${name}(${parameters.map(parameter => parameter.format()).join(", ")}) ${result}`);
 			}
 			const { typeParams, parent } = typeDefinition;
 			const generics = typeParams.length > 0 ? `<${typeParams.join(", ")}>` : String.empty;
 			const title = `${typeDefinition.name}${generics}`;
 			const header = parent !== null ? `${title} from ${parent}` : title;
-			const body = memberLines.length > 0 ? `\n${memberLines.join("\n")}\n` : String.empty;
+			const body = members.length > 0 ? `\n${members.join("\n")}\n` : String.empty;
 			return this.#toHover(`\`\`\`quartz\n${header} {${body}}\n\`\`\``);
 		}
 

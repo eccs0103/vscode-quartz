@@ -59,35 +59,28 @@ export class SignatureService {
 
 		const isDot = dotCursor >= 0 && text[dotCursor] === '.';
 
-		let overloads: FunctionDefinition[];
-		let owner: string | null;
-
-		if (isDot) {
-			const receiver = symbols.typeAt(text, dotCursor, position.line, table);
-			if (receiver === null) return null;
-			const { base, typeArgs } = TypeResolver.toGeneric(receiver);
-			const typeDefinition = symbols.getType(base);
-			const substitution = TypeResolver.toSubstitution(typeDefinition?.typeParams ?? [], typeArgs);
-			const { methods } = symbols.getAllMembers(base);
-			const matching = context.filterOverloads(methods);
-			if (matching.length === 0) return null;
-			const declarer = matching[0].owner ?? base;
-			owner = (declarer === base) ? receiver : declarer;
-			overloads = matching.map(method => new FunctionDefinition(
-				method.name,
-				method.parameters.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))),
-				TypeResolver.mapWith(method.result, substitution),
-				null,
-				null
-			));
-		} else {
+		if (!isDot) {
 			const { runtime } = symbols;
-			const rawOverloads = runtime.getFunctions(name) ?? table.getFunctions(name);
-			if (rawOverloads === null || rawOverloads.length === 0) return null;
-			owner = rawOverloads[0].owner;
-			overloads = rawOverloads;
+			const functions = runtime.getFunctions(name) ?? table.getFunctions(name);
+			if (functions === null || functions.length === 0) return null;
+			return this.#help(functions, functions[0].owner, activeParameter);
 		}
 
+		const receiver = symbols.typeAt(text, dotCursor, position.line, table);
+		if (receiver === null) return null;
+		const { base, typeArgs } = TypeResolver.toGeneric(receiver);
+		const definition = symbols.getType(base);
+		const substitution = TypeResolver.toSubstitution(definition?.typeParams ?? [], typeArgs);
+		const { methods } = symbols.getAllMembers(base);
+		const matching = context.filterOverloads(methods);
+		if (matching.length === 0) return null;
+		const declarer = matching[0].owner ?? base;
+		const owner = (declarer === base) ? receiver : declarer;
+		const overloads = matching.map(method => new FunctionDefinition(method.name, method.parameters.map(parameter => new ParameterDefinition(parameter.name, TypeResolver.mapWith(parameter.typeName, substitution))), TypeResolver.mapWith(method.result, substitution), null, null));
+		return this.#help(overloads, owner, activeParameter);
+	}
+
+	#help(overloads: FunctionDefinition[], owner: string | null, activeParameter: number): SignatureHelp {
 		const activeSignature = OverloadPicker.pickActive(overloads.map(overload => overload.parameters.length), activeParameter);
 		const signatures = overloads.map(overload => this.#makeSignature(overload, owner));
 		return { signatures, activeSignature, activeParameter };

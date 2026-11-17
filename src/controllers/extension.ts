@@ -25,7 +25,7 @@ class ExtensionController {
 		};
 		const clientOptions: LanguageClientOptions = {
 			documentSelector: [{ scheme: "file", language: "qrz" }],
-			synchronize: { fileEvents: workspace.createFileSystemWatcher("**/.qrz") }
+			synchronize: { fileEvents: workspace.createFileSystemWatcher("**/*.qrz") }
 		};
 		const client = this.#client = new LanguageClient("quartzLanguageServer", "Quartz Language Server", serverOptions, clientOptions);
 		void client.start();

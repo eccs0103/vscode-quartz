@@ -30,17 +30,30 @@ export class OverloadPicker {
 		let depth = 0;
 		let commas = 0;
 		let hasContent = false;
-		while (offset < text.length) {
+		for (; offset < text.length; offset++) {
 			const char = text[offset];
 			if (char === '"' || char === "'") {
-				const quote = char; offset++;
-				while (offset < text.length && text[offset] !== quote) { if (text[offset] === '\\') offset++; offset++; }
+				offset = OverloadPicker.#skipString(text, offset, text.length);
 				hasContent = true;
-			} else if (char === '(' || char === '[') { depth++; hasContent = true; }
-			else if (char === ')' || char === ']') { if (depth === 0) break; depth--; hasContent = true; }
-			else if (char === ',' && depth === 0) { commas++; hasContent = true; }
-			else if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') { hasContent = true; }
-			offset++;
+				continue;
+			}
+			if (char === '(' || char === '[') {
+				depth++;
+				hasContent = true;
+				continue;
+			}
+			if (char === ')' || char === ']') {
+				if (depth === 0) break;
+				depth--;
+				hasContent = true;
+				continue;
+			}
+			if (char === ',' && depth === 0) {
+				commas++;
+				hasContent = true;
+				continue;
+			}
+			if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') hasContent = true;
 		}
 		return hasContent ? commas + 1 : 0;
 	}
@@ -48,18 +61,27 @@ export class OverloadPicker {
 	static indexAt(text: string, start: number, end: number): number {
 		let depth = 0;
 		let commas = 0;
-		let cursor = start;
-		while (cursor < end) {
+		for (let cursor = start; cursor < end; cursor++) {
 			const char = text[cursor];
 			if (char === '"' || char === "'") {
-				const quote = char; cursor++;
-				while (cursor < end && text[cursor] !== quote) { if (text[cursor] === '\\') cursor++; cursor++; }
-			} else if (char === '(' || char === '[') { depth++; }
-			else if (char === ')' || char === ']') { depth--; }
-			else if (char === ',' && depth === 0) { commas++; }
-			cursor++;
+				cursor = OverloadPicker.#skipString(text, cursor, end);
+				continue;
+			}
+			if (char === '(' || char === '[') depth++;
+			if (char === ')' || char === ']') depth--;
+			if (char === ',' && depth === 0) commas++;
 		}
 		return commas;
+	}
+
+	static #skipString(text: string, start: number, end: number): number {
+		const quote = text[start];
+		let cursor = start + 1;
+		while (cursor < end && text[cursor] !== quote) {
+			if (text[cursor] === '\\') cursor++;
+			cursor++;
+		}
+		return cursor;
 	}
 }
 //#endregion
